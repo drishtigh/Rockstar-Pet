@@ -11,128 +11,251 @@
         <h1>Pet Album Cover Generator</h1>
         <p>Let's create a rockstar persona for your pet.</p>
         
-        <form action="/generate" method="post" enctype="multipart/form-data">
-            
-            <h2>Basic Info</h2>
-            <label for="artist_name">Pet's Name (Artist Name):</label>
-            <input type="text" id="artist_name" name="artist_name" required>
-            
-            <label for="album_title">Album Title:</label>
-            <input type="text" id="album_title" name="album_title" value="My Pet's Greatest Hits">
+        <form id="pet-form" action="/generate" method="post" enctype="multipart/form-data">
+            <div class="progress-bar">
+                <div class="progress"></div>
+            </div>
 
-            <h2>Energy and Vibe</h2>
-            <label for="energy">How energetic is your pet?</label>
-            <select id="energy" name="energy">
-                <option value="Chill">Chill</option>
-                <option value="Balanced" selected>Balanced</option>
-                <option value="Zoomies Every Hour">Zoomies Every Hour</option>
-            </select>
+            <div class="question-container active" data-question="1">
+                <h2>Basic Info</h2>
+                <label for="artist_name">What is your pet's name?</label>
+                <input type="text" id="artist_name" name="artist_name" required>
+                <button type="button" class="next-btn">Next</button>
+            </div>
 
-            <label for="vibe">What's their overall vibe?</label>
-            <select id="vibe" name="vibe">
-                <option value="Regal">Regal</option>
-                <option value="Goofball" selected>Goofball</option>
-                <option value="Adventurer">Adventurer</option>
-                <option value="Snuggler">Snuggler</option>
-                <option value="Bossy">Bossy</option>
-                <option value="Wise Sage">Wise Sage</option>
-            </select>
+            <div class="question-container" data-question="2">
+                <h2>Energy and Vibe</h2>
+                <label>How energetic is your pet?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="energy" value="Chill"> Chill</label>
+                    <label><input type="radio" name="energy" value="Balanced" checked> Balanced</label>
+                    <label><input type="radio" name="energy" value="Zoomies Every Hour"> Zoomies Every Hour</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Social Personality</h2>
-            <label for="social">How social are they?</label>
-            <select id="social" name="social">
-                <option value="Shy">Shy</option>
-                <option value="Selective" selected>Selective</option>
-                <option value="Party animal">Party animal</option>
-            </select>
+            <div class="question-container" data-question="3">
+                <label>What's their overall vibe?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="vibe" value="Regal"> Regal</label>
+                    <label><input type="radio" name="vibe" value="Goofball" checked> Goofball</label>
+                    <label><input type="radio" name="vibe" value="Adventurer"> Adventurer</label>
+                    <label><input type="radio" name="vibe" value="Snuggler"> Snuggler</label>
+                    <label><input type="radio" name="vibe" value="Bossy"> Bossy</label>
+                    <label><input type="radio" name="vibe" value="Wise Sage"> Wise Sage</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <label for="wingman_activity">Favorite wingman activity?</label>
-            <select id="wingman_activity" name="wingman_activity">
-                <option value="People-watching" selected>People-watching</option>
-                <option value="Park meetups">Park meetups</option>
-                <option value="Supervising from a distance">Supervising from a distance</option>
-            </select>
+            <div class="question-container" data-question="4">
+                <h2>Social Personality</h2>
+                <label>How social are they?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="social" value="Shy"> Shy</label>
+                    <label><input type="radio" name="social" value="Selective" checked> Selective</label>
+                    <label><input type="radio" name="social" value="Party animal"> Party animal</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Quirks and Signature Moves</h2>
-            <label for="signature_move">Signature move?</label>
-            <select id="signature_move" name="signature_move">
-                <option value="Head tilt" selected>Head tilt</option>
-                <option value="Side-eye">Side-eye</option>
-                <option value="Zoomies">Zoomies</option>
-                <option value="Slow blink">Slow blink</option>
-                <option value="Spooky stare">Spooky stare</option>
-                <option value="Bread loaf">Bread loaf</option>
-            </select>
+            <div class="question-container" data-question="5">
+                <label>Favorite wingman activity?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="wingman_activity" value="People-watching" checked> People-watching</label>
+                    <label><input type="radio" name="wingman_activity" value="Park meetups"> Park meetups</label>
+                    <label><input type="radio" name="wingman_activity" value="Supervising from a distance"> Supervising from a distance</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <label for="weirdest_habit">Weirdest habit?</label>
-            <select id="weirdest_habit" name="weirdest_habit">
-                <option value="Stealing socks">Stealing socks</option>
-                <option value="Staring at walls" selected>Staring at walls</option>
-                <option value="Herding humans">Herding humans</option>
-                <option value="Vocal monologues">Vocal monologues</option>
-            </select>
+            <div class="question-container" data-question="6">
+                <h2>Quirks and Signature Moves</h2>
+                <label>Signature move?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="signature_move" value="Head tilt" checked> Head tilt</label>
+                    <label><input type="radio" name="signature_move" value="Side-eye"> Side-eye</label>
+                    <label><input type="radio" name="signature_move" value="Zoomies"> Zoomies</label>
+                    <label><input type="radio" name="signature_move" value="Slow blink"> Slow blink</label>
+                    <label><input type="radio" name="signature_move" value="Spooky stare"> Spooky stare</label>
+                    <label><input type="radio" name="signature_move" value="Bread loaf"> Bread loaf</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Play and Hobbies</h2>
-            <label for="favorite_activity">Favorite activity?</label>
-            <select id="favorite_activity" name="favorite_activity">
-                <option value="Chasing">Chasing</option>
-                <option value="Fetch">Fetch</option>
-                <option value="Puzzle toys">Puzzle toys</option>
-                <option value="Sunbathing" selected>Sunbathing</option>
-                <option value="Bird TV">Bird TV</option>
-                <option value="Box forts">Box forts</option>
-            </select>
+            <div class="question-container" data-question="7">
+                <label>Weirdest habit?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="weirdest_habit" value="Stealing socks"> Stealing socks</label>
+                    <label><input type="radio" name="weirdest_habit" value="Staring at walls" checked> Staring at walls</label>
+                    <label><input type="radio" name="weirdest_habit" value="Herding humans"> Herding humans</label>
+                    <label><input type="radio" name="weirdest_habit" value="Vocal monologues"> Vocal monologues</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Affection and Boundaries</h2>
-            <label for="cuddle_factor">Cuddle factor?</label>
-            <select id="cuddle_factor" name="cuddle_factor">
-                <option value="Only when I decide">Only when I decide</option>
-                <option value="Sometimes" selected>Sometimes</option>
-                <option value="Velcro">Velcro</option>
-            </select>
+            <div class="question-container" data-question="8">
+                <h2>Play and Hobbies</h2>
+                <label>Favorite activity?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="favorite_activity" value="Chasing"> Chasing</label>
+                    <label><input type="radio" name="favorite_activity" value="Fetch"> Fetch</label>
+                    <label><input type="radio" name="favorite_activity" value="Puzzle toys"> Puzzle toys</label>
+                    <label><input type="radio" name="favorite_activity" value="Sunbathing" checked> Sunbathing</label>
+                    <label><input type="radio" name="favorite_activity" value="Bird TV"> Bird TV</label>
+                    <label><input type="radio" name="favorite_activity" value="Box forts"> Box forts</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <label for="petting_rules">Petting rules?</label>
-            <select id="petting_rules" name="petting_rules">
-                <option value="Head only" selected>Head only</option>
-                <option value="Belly traps">Belly traps</option>
-                <option value="All-access">All-access</option>
-                <option value="Don't touch the royal">Don't touch the royal</option>
-            </select>
+            <div class="question-container" data-question="9">
+                <h2>Affection and Boundaries</h2>
+                <label>Cuddle factor?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="cuddle_factor" value="Only when I decide"> Only when I decide</label>
+                    <label><input type="radio" name="cuddle_factor" value="Sometimes" checked> Sometimes</label>
+                    <label><input type="radio" name="cuddle_factor" value="Velcro"> Velcro</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Bravery and Mischief</h2>
-            <label for="sneakiness">Sneakiness level?</label>
-            <select id="sneakiness" name="sneakiness">
-                <option value="Law-abiding">Law-abiding</option>
-                <option value="Occasional heist" selected>Occasional heist</option>
-                <option value="Master thief">Master thief</option>
-            </select>
+            <div class="question-container" data-question="10">
+                <label>Petting rules?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="petting_rules" value="Head only" checked> Head only</label>
+                    <label><input type="radio" name="petting_rules" value="Belly traps"> Belly traps</label>
+                    <label><input type="radio" name="petting_rules" value="All-access"> All-access</label>
+                    <label><input type="radio" name="petting_rules" value="Don't touch the royal"> Don't touch the royal</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Communication</h2>
-            <label for="vocalness_description">Vocalness?</label>
-            <select id="vocalness_description" name="vocalness_description">
-                <option value="Silent film star">Silent film star</option>
-                <option value="Chatty" selected>Chatty</option>
-                <option value="Opera">Opera</option>
-            </select>
+            <div class="question-container" data-question="11">
+                <h2>Bravery and Mischief</h2>
+                <label>Sneakiness level?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="sneakiness" value="Law-abiding"> Law-abiding</label>
+                    <label><input type="radio" name="sneakiness" value="Occasional heist" checked> Occasional heist</label>
+                    <label><input type="radio" name="sneakiness" value="Master thief"> Master thief</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <label for="favorite_sound">Favorite sound?</label>
-            <select id="favorite_sound" name="favorite_sound">
-                <option value="Purr/soft chirps" selected>Purr/soft chirps</option>
-                <option value="Barks/meows">Barks/meows</option>
-                <option value="Snorts/bleps">Snorts/bleps</option>
-                <option value="Dramatic sighs">Dramatic sighs</option>
-            </select>
+            <div class="question-container" data-question="12">
+                <h2>Communication</h2>
+                <label>Vocalness?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="vocalness_description" value="Silent film star"> Silent film star</label>
+                    <label><input type="radio" name="vocalness_description" value="Chatty" checked> Chatty</label>
+                    <label><input type="radio" name="vocalness_description" value="Opera"> Opera</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Artistic Vision</h2>
-            <label for="liner_notes">Describe your pet's 'artistic vision' in 2-3 sentences:</label>
-            <textarea id="liner_notes" name="liner_notes" rows="3">A mysterious and profound artist.</textarea>
+            <div class="question-container" data-question="13">
+                <label>Favorite sound?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="favorite_sound" value="Purr/soft chirps" checked> Purr/soft chirps</label>
+                    <label><input type="radio" name="favorite_sound" value="Barks/meows"> Barks/meows</label>
+                    <label><input type="radio" name="favorite_sound" value="Snorts/bleps"> Snorts/bleps</label>
+                    <label><input type="radio" name="favorite_sound" value="Dramatic sighs"> Dramatic sighs</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <h2>Album Artwork</h2>
-            <label for="photos">Upload 1-5 photos of your pet:</label>
-            <input type="file" id="photos" name="photos" multiple accept="image/*">
+            <div class="question-container" data-question="14">
+                <h2>Artistic Vision</h2>
+                <label for="liner_notes">Describe your pet's 'artistic vision' in 2-3 sentences:</label>
+                <textarea id="liner_notes" name="liner_notes" rows="3">A mysterious and profound artist.</textarea>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
 
-            <button type="submit">Generate Album Cover</button>
+            <div class="question-container" data-question="15">
+                <h2>Album Artwork</h2>
+                <label for="photos">Upload 1-5 photos of your pet:</label>
+                <input type="file" id="photos" name="photos" multiple accept="image/*">
+                <button type="submit">Generate Album Cover</button>
+            </div>
         </form>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('pet-form');
+            const containers = Array.from(form.querySelectorAll('.question-container'));
+            const progressBar = form.querySelector('.progress');
+            let currentQuestionIndex = 0;
+            const totalQuestions = containers.length;
+
+            function updateProgress() {
+                const progressPercent = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+                progressBar.style.width = progressPercent + '%';
+            }
+
+            function showQuestion(index) {
+                containers.forEach((container, i) => {
+                    container.classList.remove('active');
+                    if (i === index) {
+                        container.classList.add('active');
+                    }
+                });
+                updateProgress();
+            }
+
+            function nextQuestion() {
+                const currentContainer = containers[currentQuestionIndex];
+                const input = currentContainer.querySelector('input[type="text"][required]');
+                if (input && !input.value.trim()) {
+                    alert("Please enter your pet's name.");
+                    return;
+                }
+
+                if (currentQuestionIndex < totalQuestions - 1) {
+                    currentQuestionIndex++;
+                    showQuestion(currentQuestionIndex);
+                }
+            }
+
+            // Handle Next and Skip button clicks
+            form.addEventListener('click', function (e) {
+                if (e.target.classList.contains('next-btn') || e.target.classList.contains('skip-btn')) {
+                    nextQuestion();
+                }
+            });
+
+            // Handle 'Enter' key press
+            form.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent default form submission
+                    
+                    const activeContainer = containers[currentQuestionIndex];
+                    const submitButton = activeContainer.querySelector('button[type="submit"]');
+
+                    if (submitButton) {
+                        // If on the last question, submit the form
+                        form.submit();
+                    } else {
+                        // Otherwise, go to the next question
+                        nextQuestion();
+                    }
+                }
+            });
+
+            // Initial setup
+            showQuestion(currentQuestionIndex);
+        });
+    </script>
 </body>
 </html>

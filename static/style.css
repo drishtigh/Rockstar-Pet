@@ -119,3 +119,58 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
+.question-container {
+    display: none;
+}
+
+.question-container.active {
+    display: block;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #eaeaea;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.progress {
+    width: 0%;
+    height: 10px;
+    background-color: #5a4a9f;
+    border-radius: 5px;
+    transition: width 0.3s ease-in-out;
+}
+
+.radio-group label {
+    display: block;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.radio-group label:hover {
+    background-color: #f0f0f0;
+}
+
+.radio-group input[type="radio"] {
+    margin-right: 10px;
+}
+
+.next-btn, .skip-btn {
+    display: inline-block;
+    margin-top: 10px;
+    margin-right: 10px;
+}
+
+.skip-btn {
+    background-color: #ccc;
+}
+
+.skip-btn:hover {
+    background-color: #bbb;
+}
