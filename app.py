@@ -1,11 +1,211 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, url_for
+from werkzeug.utils import secure_filename
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageEnhance
+import os
 import sys
 import random
+import time
 
 # Assuming the functions from Pet_Album.py are moved here or imported
 # For simplicity, I'll include the necessary functions directly in this file.
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, 'static')
+UPLOAD_DIR = os.path.join(STATIC_DIR, 'uploads')
+GENERATED_DIR = os.path.join(STATIC_DIR, 'generated')
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(GENERATED_DIR, exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+
+def _pick_text_color(bg_rgb):
+    r, g, b = bg_rgb
+    # perceived luminance
+    luminance = 0.299*r + 0.587*g + 0.114*b
+    return (0, 0, 0) if luminance > 160 else (255, 255, 255)
+
+def _apply_vibe_filter(img, vibe, energy):
+    if vibe == 'Regal':
+        img = ImageEnhance.Contrast(img).enhance(1.1)
+        gold = Image.new('RGBA', img.size, (212, 175, 55, 28))
+        img = Image.alpha_composite(img.convert('RGBA'), gold).convert('RGB')
+    elif vibe == 'Goofball':
+        img = ImageEnhance.Color(img).enhance(1.3)
+        img = ImageEnhance.Brightness(img).enhance(1.05)
+    elif vibe == 'Adventurer':
+        warm = Image.new('RGBA', img.size, (255, 140, 0, 24))
+        img = Image.alpha_composite(img.convert('RGBA'), warm).convert('RGB')
+        img = ImageEnhance.Contrast(img).enhance(1.05)
+    elif vibe == 'Snuggler':
+        img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+        pastel = Image.new('RGBA', img.size, (255, 192, 203, 20))
+        img = Image.alpha_composite(img.convert('RGBA'), pastel).convert('RGB')
+    elif vibe == 'Bossy':
+        img = ImageEnhance.Contrast(img).enhance(1.25)
+        img = ImageEnhance.Sharpness(img).enhance(1.1)
+    elif vibe == 'Wise Sage':
+        gray = ImageOps.grayscale(img)
+        img = ImageOps.colorize(gray, black="#3b2f2f", white="#f5e6c8")
+    # Energy tweaks
+    if energy == 'Zoomies Every Hour':
+        img = ImageEnhance.Contrast(img).enhance(1.05)
+    elif energy == 'Chill':
+        img = ImageEnhance.Color(img).enhance(0.95)
+    return img
+
+def _windows_fonts_dir():
+    # Common Windows fonts directory
+    win_dir = os.environ.get('WINDIR', r'C:\\Windows')
+    return os.path.join(win_dir, 'Fonts')
+
+def _resolve_font_path(candidates):
+    # Search in static/fonts first, then Windows fonts
+    search_dirs = [os.path.join(STATIC_DIR, 'fonts'), _windows_fonts_dir()]
+    for d in search_dirs:
+        for name in candidates:
+            p = os.path.join(d, name)
+            if os.path.exists(p):
+                return p
+    return None
+
+def _load_font(candidates, size):
+    path = _resolve_font_path(candidates)
+    if path:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            pass
+    # fallback
+    try:
+        return ImageFont.truetype('arial.ttf', size)
+    except Exception:
+        return ImageFont.load_default()
+
+def _fonts_for_vibe(vibe, title_size, artist_size):
+    # Map vibe to likely font files (Windows names)
+    vibe_map = {
+        'Regal': (['georgia.ttf', 'times.ttf', 'timesbd.ttf', 'cambria.ttc'], ['georgiaz.ttf', 'georgia.ttf', 'times.ttf']),
+        'Goofball': (['comic.ttf', 'comicbd.ttf', 'arial.ttf'], ['comic.ttf', 'arial.ttf']),
+        'Adventurer': (['rock.ttf', 'rockb.ttf', 'segoeuib.ttf', 'impact.ttf'], ['segoeui.ttf', 'arialbd.ttf']),
+        'Snuggler': (['segoeui.ttf', 'calibri.ttf', 'verdana.ttf'], ['segoeui.ttf', 'calibri.ttf']),
+        'Bossy': (['impact.ttf', 'arialbd.ttf', 'arialblack.ttf'], ['arialbd.ttf', 'impact.ttf']),
+        'Wise Sage': (['cour.ttf', 'georgia.ttf', 'times.ttf'], ['cour.ttf', 'georgia.ttf'])
+    }
+    title_candidates, artist_candidates = vibe_map.get(vibe, (['arial.ttf'], ['arial.ttf']))
+    return _load_font(title_candidates, title_size), _load_font(artist_candidates, artist_size)
+
+def _draw_text_with_spacing(draw, position, text, font, fill, spacing=0, stroke_width=0, stroke_fill=None):
+    if spacing <= 0:
+        draw.text(position, text, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
+        return
+    x, y = position
+    for ch in text:
+        draw.text((x, y), ch, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
+        w, h = draw.textbbox((0, 0), ch, font=font)[2:]
+        x += w + spacing
+
+def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=1024):
+    # Load image or fallback solid background
+    if photo_path and os.path.exists(photo_path):
+        img = Image.open(photo_path).convert('RGB')
+    else:
+        # fallback solid
+        img = Image.new('RGB', (size, size), (50, 70, 100))
+
+    # Crop to square focus center
+    img = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+
+    # Apply vibe filter
+    vibe = pet_info.get('vibe')
+    energy = pet_info.get('energy')
+    img = _apply_vibe_filter(img, vibe, energy)
+
+    # Create drawing context
+    draw = ImageDraw.Draw(img)
+
+    # Extract a rough dominant color by downsampling
+    small = img.resize((50, 50))
+    pal = small.quantize(colors=5, method=Image.MEDIANCUT)
+    palette_img = pal.convert('RGB')
+    colors = palette_img.getcolors(50*50)
+    colors = sorted(colors, key=lambda c: c[0], reverse=True)
+    main_color = colors[0][1] if colors else (230, 230, 230)
+    text_color = _pick_text_color(main_color)
+
+    # Titles
+    title = pet_info.get('album_title', 'Greatest Hits')
+    artist = pet_info.get('artist_name', 'The Artist')
+
+    # Font selection per vibe
+    font_title, font_artist = _fonts_for_vibe(vibe, title_size=64, artist_size=36)
+
+    # Energy affects casing and spacing/tilt
+    spacing = 0
+    title_draw = title
+    if energy == 'Zoomies Every Hour':
+        title_draw = title.upper()
+    elif energy == 'Chill':
+        title_draw = title.title()
+        spacing = 2
+
+    # Render title on its own layer if tilt is needed
+    needs_tilt = (energy == 'Zoomies Every Hour')
+    shadow = (0, 0, 0)
+    stroke_w = 2
+    stroke_c = shadow
+
+    if needs_tilt:
+        # Create transparent layer
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        layer_draw = ImageDraw.Draw(layer)
+        tw, th = layer_draw.textbbox((0, 0), title_draw, font=font_title)[2:]
+        tx = (size - tw) // 2
+        ty = int(size * 0.07)
+        _draw_text_with_spacing(layer_draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+        _draw_text_with_spacing(layer_draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+        layer = layer.rotate(-4, resample=Image.Resampling.BICUBIC, center=(size//2, int(size*0.15)), expand=False)
+        img = Image.alpha_composite(img.convert('RGBA'), layer).convert('RGB')
+        draw = ImageDraw.Draw(img)
+    else:
+        tw, th = draw.textbbox((0, 0), title_draw, font=font_title)[2:]
+        tx = (size - tw) // 2
+        ty = int(size * 0.07)
+        _draw_text_with_spacing(draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+        _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+
+    # Artist position (bottom center)
+    aw, ah = draw.textbbox((0, 0), artist, font=font_artist)[2:]
+    ax = (size - aw) // 2
+    ay = int(size * 0.86)
+    draw.text((ax+1, ay+1), artist, font=font_artist, fill=shadow, stroke_width=1, stroke_fill=shadow)
+    draw.text((ax, ay), artist, font=font_artist, fill=text_color, stroke_width=1, stroke_fill=shadow)
+
+    # Optional stickers based on traits (minimal, simple icons)
+    stickers = []
+    if pet_info.get('vocalness_description') == 'Opera' or pet_info.get('sneakiness') == 'Master thief':
+        stickers.append('Deluxe')
+    if pet_info.get('wingman_activity') == 'Park meetups':
+        stickers.append('Live at the Park')
+    if pet_info.get('wingman_activity') in ('People-watching', 'Bird TV'):
+        stickers.append('Window Sessions')
+
+    sx, sy = int(size*0.05), int(size*0.85)
+    for s in stickers[:2]:
+        # Draw rounded sticker
+        pad = 8
+        sw, sh = draw.textbbox((0, 0), s, font=font_artist)[2:]
+        box = [sx-6, sy-6, sx+sw+pad, sy+sh+pad]
+        draw.rectangle(box, fill=(255, 255, 255, 180), outline=(0,0,0))
+        draw.text((sx, sy), s, font=font_artist, fill=(0, 0, 0))
+        sy -= sh + 18
+
+    # Save
+    filename = f"cover_{int(time.time())}_{random.randint(1000,9999)}.jpg"
+    out_path = os.path.join(out_dir, filename)
+    img.save(out_path, quality=90)
+    return filename
 
 def generate_album_content(pet_info):
     """Generates the album content based on the pet's info using a detailed mapping plan."""
@@ -275,6 +475,19 @@ def index():
 @app.route('/generate', methods=['POST'])
 def generate():
     pet_info = request.form.to_dict()
+    # Handle uploaded photos
+    uploaded_files = request.files.getlist('photos') if 'photos' in request.files else []
+    saved_path = None
+    for file in uploaded_files:
+        if not file or file.filename == '':
+            continue
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            continue
+        safe_name = secure_filename(file.filename)
+        saved_path = os.path.join(UPLOAD_DIR, f"{int(time.time())}_{random.randint(100,999)}_{safe_name}")
+        file.save(saved_path)
+        break
     
     # Set mischief and vocalness scores based on descriptions
     if pet_info.get('sneakiness') == 'Master thief': pet_info['mischief'] = 5
@@ -290,8 +503,12 @@ def generate():
     pet_info['album_title'] = generate_album_title(pet_info)
 
     content = generate_album_content(pet_info)
+
+    # Generate cover image (uses first uploaded or fallback)
+    cover_filename = generate_cover_image(pet_info, saved_path)
+    cover_url = url_for('static', filename=f'generated/{cover_filename}')
     
-    return render_template('result.html', pet_info=pet_info, content=content)
+    return render_template('result.html', pet_info=pet_info, content=content, cover_url=cover_url)
 
 if __name__ == '__main__':
     app.run(debug=True)
