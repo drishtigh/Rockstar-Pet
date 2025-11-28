@@ -106,30 +106,47 @@ def _draw_text_with_spacing(draw, position, text, font, fill, spacing=0, stroke_
         w, h = draw.textbbox((0, 0), ch, font=font)[2:]
         x += w + spacing
 
-def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=1024):
+def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERATED_DIR, size=1024):
     # Load image or fallback solid background
     if photo_path and os.path.exists(photo_path):
         img = Image.open(photo_path).convert('RGB')
     else:
         # fallback solid
         img = Image.new('RGB', (size, size), (50, 70, 100))
+    # keep a copy of the original photo for square placement later
+    src = img.copy()
 
-    poster_mode = pet_info.get('poster_mode') == 'on'
+    # Poster is always on; style controls photo treatment only
+    poster_mode = True
     poster_style = pet_info.get('poster_style', 'auto')
 
-    # Aspect: square or poster 4:5
+    # Poster 4:5 aspect
     if poster_mode:
         width, height = size, int(size * 1.25)
     else:
         width, height = size, size
 
-    # Crop to target aspect focusing center
-    img = ImageOps.fit(img, (width, height), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-
-    # Apply vibe filter
+    # Apply vibe and style to the photo only; create poster background
     vibe = pet_info.get('vibe')
     energy = pet_info.get('energy')
-    img = _apply_vibe_filter(img, vibe, energy)
+    # Background color by vibe
+    bg_map = {
+        'Regal': (58, 36, 52),        # deep burgundy
+        'Goofball': (255, 225, 90),   # playful yellow
+        'Adventurer': (241, 214, 167),# warm sand
+        'Snuggler': (253, 236, 239),  # blush
+        'Bossy': (17, 17, 17),        # charcoal
+        'Wise Sage': (239, 230, 211)  # parchment
+    }
+    bg_color = bg_map.get(vibe, (245, 240, 225))
+    poster = Image.new('RGB', (width, height), bg_color)
+
+    # Square photo placement
+    photo_side = int(width * 0.78)
+    px = (width - photo_side) // 2
+    py = int(height * 0.07)
+    photo = ImageOps.fit(src, (photo_side, photo_side), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    photo = _apply_vibe_filter(photo, vibe, energy)
 
     # Poster preset overlays
     def apply_vignette(im, strength=0.5):
@@ -160,8 +177,8 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
 
     if poster_mode:
         if chosen_style == 'californication':
-            # Subtle blue/orange split tint and thin cream frame
-            w, h = img.size
+            # Subtle blue/orange split tint on the photo
+            w, h = photo.size
             grad = Image.new('RGBA', (w, h), (0, 0, 0, 0))
             gdraw = ImageDraw.Draw(grad)
             for y in range(h):
@@ -169,79 +186,204 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
                 r = int(255 * (1-t) * 0.2 + 255 * t * 0.8)
                 b = int(255 * (1-t) * 0.8 + 255 * t * 0.2)
                 gdraw.line([(0, y), (w, y)], fill=(r, 100, b, 30))
-            img = Image.alpha_composite(img.convert('RGBA'), grad).convert('RGB')
+            photo = Image.alpha_composite(photo.convert('RGBA'), grad).convert('RGB')
         elif chosen_style == 'melodrama':
             # Deep blue tint and soft vignette
-            blue = Image.new('RGBA', img.size, (20, 40, 120, 40))
-            img = Image.alpha_composite(img.convert('RGBA'), blue).convert('RGB')
-            img = apply_vignette(img, strength=0.55)
+            blue = Image.new('RGBA', photo.size, (20, 40, 120, 40))
+            photo = Image.alpha_composite(photo.convert('RGBA'), blue).convert('RGB')
+            photo = apply_vignette(photo, strength=0.55)
         elif chosen_style == 'gig':
             # High contrast and grain
-            img = ImageEnhance.Contrast(img).enhance(1.25)
-            img = ImageEnhance.Color(img).enhance(1.1)
-            img = apply_grain(img, opacity=18)
+            photo = ImageEnhance.Contrast(photo).enhance(1.25)
+            photo = ImageEnhance.Color(photo).enhance(1.1)
+            photo = apply_grain(photo, opacity=18)
 
-    # Create drawing context
-    draw = ImageDraw.Draw(img)
+    # Paste photo onto poster canvas
+    poster.paste(photo, (px, py))
 
-    # Extract a rough dominant color by downsampling
-    small = img.resize((50, 50))
-    pal = small.quantize(colors=5, method=Image.MEDIANCUT)
-    palette_img = pal.convert('RGB')
-    colors = palette_img.getcolors(50*50)
-    colors = sorted(colors, key=lambda c: c[0], reverse=True)
-    main_color = colors[0][1] if colors else (230, 230, 230)
-    text_color = _pick_text_color(main_color)
+    # Create drawing context on poster
+    draw = ImageDraw.Draw(poster)
+
+    # Text color from background for contrast
+    cream = (245, 240, 225)
+    text_color = _pick_text_color(poster.getpixel((width//2, height//2)))
 
     # Titles
     title = pet_info.get('album_title', 'Greatest Hits')
     artist = pet_info.get('artist_name', 'The Artist')
 
-    # Font selection per vibe
-    font_title, font_artist = _fonts_for_vibe(vibe, title_size=64, artist_size=36)
+    # Special typography for Californication poster style
+    # Text layout is always Californication-style typography
+    cali_typo = True
+    if cali_typo:
+        heading_font = _load_font(['bahnschrift.ttf', 'impact.ttf', 'arialbd.ttf', 'segoeuib.ttf'], int(width * 0.08))
+        sub_font = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], int(width * 0.045))
+        body_font = _load_font(['segoeui.ttf', 'arial.ttf'], int(width * 0.035))
+
+        # Uppercase artist and album for a clean poster hierarchy
+        artist_u = (artist or 'The Artist').upper()
+        title_u = (title or 'Greatest Hits').upper()
+
+        # Layout metrics
+        margin_x = int(width * 0.07)
+        spacing_head = 2
+        spacing_body = 1
+
+        # Titles below the square photo
+        start_y = py + int(width * 0.78) + int(height * 0.03)
+        atw, ath = draw.textbbox((0, 0), title_u, font=heading_font)[2:]
+        tx, ty = margin_x, start_y
+        draw.text((tx+2, ty+2), title_u, font=heading_font, fill=(0,0,0))
+        _draw_text_with_spacing(draw, (tx, ty), title_u, heading_font, cream if text_color==(0,0,0) else text_color, spacing=spacing_head, stroke_width=0)
+
+        # Artist (small) under title
+        ax, ay = margin_x, ty + int(ath * 1.1) + int(height * 0.008)
+        _draw_text_with_spacing(draw, (ax+1, ay+1), artist_u, sub_font, (0,0,0), spacing=spacing_head, stroke_width=0)
+        _draw_text_with_spacing(draw, (ax, ay), artist_u, sub_font, cream if text_color==(0,0,0) else text_color, spacing=spacing_head, stroke_width=0)
+
+        # Thin rule under artist
+        a_h = draw.textbbox((0,0), artist_u, font=sub_font)[3] - draw.textbbox((0,0), artist_u, font=sub_font)[1]
+        rule_y = ay + a_h + int(height*0.006)
+        draw.line([(margin_x, rule_y), (width - margin_x, rule_y)], fill=cream, width=max(1, width//400))
+
+        # Tracklist block (two columns if 8 tracks)
+        if tracks is None:
+            # Fallback: try to derive tracks locally
+            try:
+                local_tracks = generate_album_content(pet_info).get('track_list', [])
+            except Exception:
+                local_tracks = []
+        else:
+            local_tracks = tracks
+
+        # Normalize track titles and numbers (01., 02., ...)
+        norm_tracks = []
+        for i, t in enumerate(local_tracks, start=1):
+            try:
+                # Remove any existing numbering
+                title_part = t.split('. ', 1)[1]
+            except Exception:
+                title_part = t
+            norm_tracks.append((i, title_part.upper()))
+
+        if norm_tracks:
+            col_count = 2 if len(norm_tracks) >= 8 else 1
+            inner_w = width - 2 * margin_x
+            gap = int(width * 0.05)
+            col_w = (inner_w - (gap if col_count == 2 else 0)) // col_count
+            start_y = rule_y + int(height * 0.02)
+            line_h = int(body_font.size * 1.55)
+
+            for idx, (num, tt) in enumerate(norm_tracks):
+                if col_count == 2:
+                    col = 0 if idx < (len(norm_tracks)+1)//2 else 1
+                    row = idx if col == 0 else idx - (len(norm_tracks)+1)//2
+                else:
+                    col, row = 0, idx
+
+                x = margin_x + col * (col_w + gap)
+                y = start_y + row * line_h
+                num_txt = f"{num:02d}. "
+                # Draw number in sub_font, title in body_font
+                draw.text((x+1, y+1), num_txt, font=sub_font, fill=(0,0,0))
+                draw.text((x, y), num_txt, font=sub_font, fill=cream if text_color==(0,0,0) else text_color)
+                nx = x + draw.textbbox((0,0), num_txt, font=sub_font)[2]
+                draw.text((nx+1, y+1), tt, font=body_font, fill=(0,0,0))
+                draw.text((nx, y), tt, font=body_font, fill=cream if text_color==(0,0,0) else text_color)
+
+        # Liner notes under tracklist
+        notes = (pet_info.get('liner_notes') or '').strip()
+        if notes:
+            def _wrap_text(draw_ctx, text, font_obj, max_w):
+                words = text.split()
+                lines, current = [], ''
+                for w in words:
+                    test = (current + ' ' + w).strip()
+                    tw = draw_ctx.textbbox((0,0), test, font=font_obj)[2]
+                    if tw <= max_w:
+                        current = test
+                    else:
+                        if current:
+                            lines.append(current)
+                        current = w
+                if current:
+                    lines.append(current)
+                return lines
+
+            notes_font = _load_font(['segoeui.ttf', 'arial.ttf'], int(width * 0.03))
+            inner_w = width - 2*margin_x
+            lines = _wrap_text(draw, notes, notes_font, inner_w)
+            max_lines = 4
+            lines = lines[:max_lines]
+            # Position after track block or reserve near bottom if short
+            last_row_count = (len(norm_tracks)+1)//2 if len(norm_tracks)>=8 else len(norm_tracks)
+            ny = start_y + last_row_count * int(body_font.size * 1.55) + int(height*0.02)
+            ny = min(ny, int(height * 0.82))
+            for i, line in enumerate(lines):
+                y = ny + i * int(notes_font.size * 1.4)
+                draw.text((margin_x+1, y+1), line, font=notes_font, fill=(0,0,0))
+                draw.text((margin_x, y), line, font=notes_font, fill=cream if text_color==(0,0,0) else text_color)
+
+        # Footer artist repetition (small) at bottom-left for balance
+        foot_y = int(height * 0.92)
+        _draw_text_with_spacing(draw, (margin_x, foot_y), artist_u, body_font, cream, spacing=spacing_body, stroke_width=0)
+
+    # If not Californication style, use the existing vibe/energy layout
+    if not cali_typo:
+        # Font selection per vibe
+        font_title, font_artist = _fonts_for_vibe(vibe, title_size=64, artist_size=36)
 
     # Energy affects casing and spacing/tilt
-    spacing = 0
-    title_draw = title
-    if energy == 'Zoomies Every Hour':
-        title_draw = title.upper()
-    elif energy == 'Chill':
-        title_draw = title.title()
-        spacing = 2
+        spacing = 0
+        title_draw = title
+        if energy == 'Zoomies Every Hour':
+            title_draw = title.upper()
+        elif energy == 'Chill':
+            title_draw = title.title()
+            spacing = 2
 
-    # Render title on its own layer if tilt is needed
-    needs_tilt = (energy == 'Zoomies Every Hour')
-    shadow = (0, 0, 0)
-    stroke_w = 2
-    stroke_c = shadow
+        # Render title on its own layer if tilt is needed
+        needs_tilt = (energy == 'Zoomies Every Hour')
+        shadow = (0, 0, 0)
+        stroke_w = 2
+        stroke_c = shadow
 
-    if needs_tilt:
-        # Create transparent layer
-        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        layer_draw = ImageDraw.Draw(layer)
-        tw, th = layer_draw.textbbox((0, 0), title_draw, font=font_title)[2:]
-        tx = (size - tw) // 2
-        ty = int(size * 0.07)
-        _draw_text_with_spacing(layer_draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
-        _draw_text_with_spacing(layer_draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
-        layer = layer.rotate(-4, resample=Image.Resampling.BICUBIC, center=(size//2, int(size*0.15)), expand=False)
-        img = Image.alpha_composite(img.convert('RGBA'), layer).convert('RGB')
-        draw = ImageDraw.Draw(img)
-    else:
-        tw, th = draw.textbbox((0, 0), title_draw, font=font_title)[2:]
-        tx = (width - tw) // 2
-        ty = int(height * 0.07)
-        _draw_text_with_spacing(draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
-        _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+        if needs_tilt:
+            # Create transparent layer
+            layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            layer_draw = ImageDraw.Draw(layer)
+            tw, th = layer_draw.textbbox((0, 0), title_draw, font=font_title)[2:]
+            tx = (size - tw) // 2
+            ty = int(size * 0.07)
+            _draw_text_with_spacing(layer_draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+            _draw_text_with_spacing(layer_draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+            layer = layer.rotate(-4, resample=Image.Resampling.BICUBIC, center=(size//2, int(size*0.15)), expand=False)
+            img = Image.alpha_composite(img.convert('RGBA'), layer).convert('RGB')
+            draw = ImageDraw.Draw(img)
+        else:
+            tw, th = draw.textbbox((0, 0), title_draw, font=font_title)[2:]
+            tx = (width - tw) // 2
+            ty = int(height * 0.07)
+            _draw_text_with_spacing(draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+            _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
 
-    # Artist position (bottom center)
-    aw, ah = draw.textbbox((0, 0), artist, font=font_artist)[2:]
-    ax = (width - aw) // 2
-    ay = int(height * 0.86)
-    draw.text((ax+1, ay+1), artist, font=font_artist, fill=shadow, stroke_width=1, stroke_fill=shadow)
-    draw.text((ax, ay), artist, font=font_artist, fill=text_color, stroke_width=1, stroke_fill=shadow)
+        # Artist position (bottom center)
+        aw, ah = draw.textbbox((0, 0), artist, font=font_artist)[2:]
+        ax = (width - aw) // 2
+        ay = int(height * 0.86)
+        draw.text((ax+1, ay+1), artist, font=font_artist, fill=shadow, stroke_width=1, stroke_fill=shadow)
+        draw.text((ax, ay), artist, font=font_artist, fill=text_color, stroke_width=1, stroke_fill=shadow)
 
     # Optional stickers based on traits (minimal, simple icons)
+    # Pick a sticker font that exists in both branches
+    if 'cali_typo' in locals() and cali_typo:
+        sticker_font = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], int(width * 0.04))
+    else:
+        # fallback to artist font if available
+        try:
+            sticker_font = font_artist
+        except NameError:
+            sticker_font = _load_font(['arialbd.ttf', 'segoeui.ttf', 'arial.ttf'], int(width * 0.04))
     stickers = []
     if pet_info.get('vocalness_description') == 'Opera' or pet_info.get('sneakiness') == 'Master thief':
         stickers.append('Deluxe')
@@ -254,25 +396,25 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
     for s in stickers[:2]:
         # Draw rounded sticker
         pad = 8
-        sw, sh = draw.textbbox((0, 0), s, font=font_artist)[2:]
+        sw, sh = draw.textbbox((0, 0), s, font=sticker_font)[2:]
         box = [sx-6, sy-6, sx+sw+pad, sy+sh+pad]
         draw.rectangle(box, fill=(255, 255, 255, 180), outline=(0,0,0))
-        draw.text((sx, sy), s, font=font_artist, fill=(0, 0, 0))
+        draw.text((sx, sy), s, font=sticker_font, fill=(0, 0, 0))
         sy -= sh + 18
 
     # Save
     # Optional frame for poster mode
     if poster_mode:
-        frame = Image.new('RGBA', img.size, (0,0,0,0))
+        frame = Image.new('RGBA', poster.size, (0,0,0,0))
         fdraw = ImageDraw.Draw(frame)
         border_color = (245, 240, 225)
         pad = max(6, width//100)
         fdraw.rectangle([pad, pad, width-pad, height-pad], outline=border_color, width=pad//2)
-        img = Image.alpha_composite(img.convert('RGBA'), frame).convert('RGB')
+        poster = Image.alpha_composite(poster.convert('RGBA'), frame).convert('RGB')
 
     filename = f"cover_{int(time.time())}_{random.randint(1000,9999)}.jpg"
     out_path = os.path.join(out_dir, filename)
-    img.save(out_path, quality=90)
+    poster.save(out_path, quality=90)
     return filename
 
 def generate_album_content(pet_info):
@@ -543,8 +685,8 @@ def index():
 @app.route('/generate', methods=['POST'])
 def generate():
     pet_info = request.form.to_dict()
-    # Normalize poster form fields
-    pet_info['poster_mode'] = pet_info.get('poster_mode', 'on')
+    # Force poster mode; keep style from form for photo treatment
+    pet_info['poster_mode'] = 'on'
     pet_info['poster_style'] = pet_info.get('poster_style', 'auto')
     # Handle uploaded photos
     uploaded_files = request.files.getlist('photos') if 'photos' in request.files else []
@@ -576,7 +718,7 @@ def generate():
     content = generate_album_content(pet_info)
 
     # Generate cover image (uses first uploaded or fallback)
-    cover_filename = generate_cover_image(pet_info, saved_path)
+    cover_filename = generate_cover_image(pet_info, saved_path, tracks=content.get('track_list'))
     cover_url = url_for('static', filename=f'generated/{cover_filename}')
     
     return render_template('result.html', pet_info=pet_info, content=content, cover_url=cover_url)
