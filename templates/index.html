@@ -183,6 +183,24 @@
             </div>
 
             <div class="question-container" data-question="15">
+                <h2>Poster Mode</h2>
+                <label>Do you want a poster-style album cover?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="poster_mode" value="on" checked> Yes, Poster Mode</label>
+                    <label><input type="radio" name="poster_mode" value="off"> No, Classic Cover</label>
+                </div>
+                <label>Poster style</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="poster_style" value="auto" checked> Auto (based on vibe)</label>
+                    <label><input type="radio" name="poster_style" value="californication"> Californication</label>
+                    <label><input type="radio" name="poster_style" value="melodrama"> Melodrama</label>
+                    <label><input type="radio" name="poster_style" value="gig"> Gig Poster</label>
+                </div>
+                <button type="button" class="next-btn">Next</button>
+                <button type="button" class="skip-btn">Skip</button>
+            </div>
+
+            <div class="question-container" data-question="16">
                 <h2>Album Artwork</h2>
                 <label for="photos">Upload 1-5 photos of your pet:</label>
                 <input type="file" id="photos" name="photos" multiple accept="image/*">

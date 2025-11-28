@@ -114,13 +114,72 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
         # fallback solid
         img = Image.new('RGB', (size, size), (50, 70, 100))
 
-    # Crop to square focus center
-    img = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    poster_mode = pet_info.get('poster_mode') == 'on'
+    poster_style = pet_info.get('poster_style', 'auto')
+
+    # Aspect: square or poster 4:5
+    if poster_mode:
+        width, height = size, int(size * 1.25)
+    else:
+        width, height = size, size
+
+    # Crop to target aspect focusing center
+    img = ImageOps.fit(img, (width, height), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
     # Apply vibe filter
     vibe = pet_info.get('vibe')
     energy = pet_info.get('energy')
     img = _apply_vibe_filter(img, vibe, energy)
+
+    # Poster preset overlays
+    def apply_vignette(im, strength=0.5):
+        w, h = im.size
+        vignette = Image.new('L', (w, h), 0)
+        draw_v = ImageDraw.Draw(vignette)
+        draw_v.ellipse((int(-0.1*w), int(-0.2*h), int(1.1*w), int(1.2*h)), fill=int(255*strength))
+        vignette = vignette.filter(ImageFilter.GaussianBlur(radius=int(min(w, h)*0.08)))
+        return Image.composite(Image.new('RGB', (w, h), (0, 0, 0)), im, ImageOps.invert(vignette)).convert('RGB')
+
+    def apply_grain(im, opacity=24):
+        w, h = im.size
+        noise = Image.effect_noise((w, h), 8).convert('L')
+        noise_rgb = Image.merge('RGB', (noise, noise, noise))
+        return Image.blend(im, noise_rgb, opacity/255.0)
+
+    chosen_style = poster_style
+    if poster_style == 'auto':
+        style_map = {
+            'Regal': 'californication',
+            'Goofball': 'gig',
+            'Adventurer': 'californication',
+            'Snuggler': 'melodrama',
+            'Bossy': 'gig',
+            'Wise Sage': 'melodrama',
+        }
+        chosen_style = style_map.get(vibe, 'californication')
+
+    if poster_mode:
+        if chosen_style == 'californication':
+            # Subtle blue/orange split tint and thin cream frame
+            w, h = img.size
+            grad = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+            gdraw = ImageDraw.Draw(grad)
+            for y in range(h):
+                t = y / h
+                r = int(255 * (1-t) * 0.2 + 255 * t * 0.8)
+                b = int(255 * (1-t) * 0.8 + 255 * t * 0.2)
+                gdraw.line([(0, y), (w, y)], fill=(r, 100, b, 30))
+            img = Image.alpha_composite(img.convert('RGBA'), grad).convert('RGB')
+        elif chosen_style == 'melodrama':
+            # Deep blue tint and soft vignette
+            blue = Image.new('RGBA', img.size, (20, 40, 120, 40))
+            img = Image.alpha_composite(img.convert('RGBA'), blue).convert('RGB')
+            img = apply_vignette(img, strength=0.55)
+        elif chosen_style == 'gig':
+            # High contrast and grain
+            img = ImageEnhance.Contrast(img).enhance(1.25)
+            img = ImageEnhance.Color(img).enhance(1.1)
+            img = apply_grain(img, opacity=18)
 
     # Create drawing context
     draw = ImageDraw.Draw(img)
@@ -170,15 +229,15 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
         draw = ImageDraw.Draw(img)
     else:
         tw, th = draw.textbbox((0, 0), title_draw, font=font_title)[2:]
-        tx = (size - tw) // 2
-        ty = int(size * 0.07)
+        tx = (width - tw) // 2
+        ty = int(height * 0.07)
         _draw_text_with_spacing(draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
         _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
 
     # Artist position (bottom center)
     aw, ah = draw.textbbox((0, 0), artist, font=font_artist)[2:]
-    ax = (size - aw) // 2
-    ay = int(size * 0.86)
+    ax = (width - aw) // 2
+    ay = int(height * 0.86)
     draw.text((ax+1, ay+1), artist, font=font_artist, fill=shadow, stroke_width=1, stroke_fill=shadow)
     draw.text((ax, ay), artist, font=font_artist, fill=text_color, stroke_width=1, stroke_fill=shadow)
 
@@ -191,7 +250,7 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
     if pet_info.get('wingman_activity') in ('People-watching', 'Bird TV'):
         stickers.append('Window Sessions')
 
-    sx, sy = int(size*0.05), int(size*0.85)
+    sx, sy = int(width*0.05), int(height*0.85)
     for s in stickers[:2]:
         # Draw rounded sticker
         pad = 8
@@ -202,6 +261,15 @@ def generate_cover_image(pet_info, photo_path=None, out_dir=GENERATED_DIR, size=
         sy -= sh + 18
 
     # Save
+    # Optional frame for poster mode
+    if poster_mode:
+        frame = Image.new('RGBA', img.size, (0,0,0,0))
+        fdraw = ImageDraw.Draw(frame)
+        border_color = (245, 240, 225)
+        pad = max(6, width//100)
+        fdraw.rectangle([pad, pad, width-pad, height-pad], outline=border_color, width=pad//2)
+        img = Image.alpha_composite(img.convert('RGBA'), frame).convert('RGB')
+
     filename = f"cover_{int(time.time())}_{random.randint(1000,9999)}.jpg"
     out_path = os.path.join(out_dir, filename)
     img.save(out_path, quality=90)
@@ -475,6 +543,9 @@ def index():
 @app.route('/generate', methods=['POST'])
 def generate():
     pet_info = request.form.to_dict()
+    # Normalize poster form fields
+    pet_info['poster_mode'] = pet_info.get('poster_mode', 'on')
+    pet_info['poster_style'] = pet_info.get('poster_style', 'auto')
     # Handle uploaded photos
     uploaded_files = request.files.getlist('photos') if 'photos' in request.files else []
     saved_path = None
