@@ -55,6 +55,42 @@ def _apply_vibe_filter(img, vibe, energy):
         img = ImageEnhance.Color(img).enhance(0.95)
     return img
 
+def _dominant_color(img, k=5):
+    # Analyze dominant color of the image using adaptive palette
+    small = img.copy().resize((120, 120), Image.Resampling.BILINEAR)
+    pal = small.convert('P', palette=Image.Palette.ADAPTIVE, colors=max(2, k))
+    pal = pal.convert('RGB')
+    colors = pal.getcolors(120*120) or []
+    # Sort by frequency desc
+    colors.sort(key=lambda c: c[0], reverse=True)
+    # Filter out too dark/too light extremes
+    def lum(rgb):
+        r,g,b = rgb
+        return 0.299*r + 0.587*g + 0.114*b
+    for count, rgb in colors:
+        L = lum(rgb)
+        if 30 < L < 230:
+            return rgb
+    # Fallback to a soft cream
+    return (245, 240, 225)
+
+def _lighten_for_background(rgb, min_luma=210):
+    r, g, b = rgb
+    def lum(rr, gg, bb):
+        return 0.299*rr + 0.587*gg + 0.114*bb
+    # Blend with white until luminance is sufficient
+    mix = 0.0
+    wr, wg, wb = 255, 255, 255
+    rr, gg, bb = r, g, b
+    for _ in range(10):
+        if lum(rr, gg, bb) >= min_luma:
+            break
+        mix = min(1.0, mix + 0.15)
+        rr = int(r*(1-mix) + wr*mix)
+        gg = int(g*(1-mix) + wg*mix)
+        bb = int(b*(1-mix) + wb*mix)
+    return (rr, gg, bb)
+
 def _windows_fonts_dir():
     # Common Windows fonts directory
     win_dir = os.environ.get('WINDIR', r'C:\\Windows')
@@ -126,20 +162,10 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     else:
         width, height = size, size
 
-    # Apply vibe and style to the photo only; create poster background
+    # Apply vibe and style to the photo only; background will be derived from photo palette
     vibe = pet_info.get('vibe')
     energy = pet_info.get('energy')
-    # Background color by vibe
-    bg_map = {
-        'Regal': (58, 36, 52),        # deep burgundy
-        'Goofball': (255, 225, 90),   # playful yellow
-        'Adventurer': (241, 214, 167),# warm sand
-        'Snuggler': (253, 236, 239),  # blush
-        'Bossy': (17, 17, 17),        # charcoal
-        'Wise Sage': (239, 230, 211)  # parchment
-    }
-    bg_color = bg_map.get(vibe, (245, 240, 225))
-    poster = Image.new('RGB', (width, height), bg_color)
+    # Background will be set later after analyzing photo colors
 
     # Square photo placement
     photo_side = int(width * 0.78)
@@ -198,15 +224,14 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
             photo = ImageEnhance.Color(photo).enhance(1.1)
             photo = apply_grain(photo, opacity=18)
 
-    # Paste photo onto poster canvas
-    poster.paste(photo, (px, py))
+    # Defer pasting photo until we position title and create poster
 
-    # Create drawing context on poster
+    # Create poster background based on photo palette
+    dom = _dominant_color(photo)
+    bg_color = _lighten_for_background(dom)
+    poster = Image.new('RGB', (width, height), bg_color)
     draw = ImageDraw.Draw(poster)
-
-    # Text color from background for contrast
     cream = (245, 240, 225)
-    text_color = _pick_text_color(poster.getpixel((width//2, height//2)))
 
     # Titles
     title = pet_info.get('album_title', 'Greatest Hits')
@@ -216,35 +241,113 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     # Text layout is always Californication-style typography
     cali_typo = True
     if cali_typo:
-        heading_font = _load_font(['bahnschrift.ttf', 'impact.ttf', 'arialbd.ttf', 'segoeuib.ttf'], int(width * 0.08))
-        sub_font = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], int(width * 0.045))
-        body_font = _load_font(['segoeui.ttf', 'arial.ttf'], int(width * 0.035))
-
         # Uppercase artist and album for a clean poster hierarchy
         artist_u = (artist or 'The Artist').upper()
         title_u = (title or 'Greatest Hits').upper()
 
-        # Layout metrics
-        margin_x = int(width * 0.07)
+        # Layout metrics (align text to photo margins)
+        margin_x = px
+        margin_top = int(height * 0.045)
         spacing_head = 2
         spacing_body = 1
 
-        # Titles below the square photo
-        start_y = py + int(width * 0.78) + int(height * 0.03)
-        atw, ath = draw.textbbox((0, 0), title_u, font=heading_font)[2:]
-        tx, ty = margin_x, start_y
-        draw.text((tx+2, ty+2), title_u, font=heading_font, fill=(0,0,0))
-        _draw_text_with_spacing(draw, (tx, ty), title_u, heading_font, cream if text_color==(0,0,0) else text_color, spacing=spacing_head, stroke_width=0)
+        # Fit heading font to available width
+        def fit_font(candidates, text, max_w, start_size, min_size):
+            size = start_size
+            while size >= min_size:
+                f = _load_font(candidates, size)
+                tw = draw.textbbox((0,0), text, font=f)[2]
+                if tw <= max_w:
+                    return f
+                size -= 1
+            return _load_font(candidates, min_size)
 
-        # Artist (small) under title
-        ax, ay = margin_x, ty + int(ath * 1.1) + int(height * 0.008)
-        _draw_text_with_spacing(draw, (ax+1, ay+1), artist_u, sub_font, (0,0,0), spacing=spacing_head, stroke_width=0)
-        _draw_text_with_spacing(draw, (ax, ay), artist_u, sub_font, cream if text_color==(0,0,0) else text_color, spacing=spacing_head, stroke_width=0)
+        heading_font = fit_font(
+            [
+                'impact.ttf', 'ariblk.ttf', 'arialbd.ttf',
+                'bahnschrift.ttf', 'segoeuib.ttf',
+                'Poppins-Black.ttf', 'Poppins-Black.otf',
+                'Poppins-ExtraBold.ttf', 'Poppins-ExtraBold.otf'
+            ],
+            title_u,
+            max_w=width - 2*margin_x,
+            start_size=int(width*0.09),
+            min_size=int(width*0.05)
+        )
+        sub_font = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], int(width * 0.045))
 
-        # Thin rule under artist
-        a_h = draw.textbbox((0,0), artist_u, font=sub_font)[3] - draw.textbbox((0,0), artist_u, font=sub_font)[1]
-        rule_y = ay + a_h + int(height*0.006)
+        # Album title at the very top (render on a separate layer to avoid glyph clipping)
+        tx, ty = margin_x, margin_top
+        # Measure width with custom letter spacing
+        def _measure_spaced_width(text, font, spacing):
+            tmp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
+            total = 0
+            for i, ch in enumerate(text):
+                ch_w = tmp_draw.textbbox((0,0), ch, font=font)[2]
+                total += ch_w
+                if i != len(text)-1:
+                    total += spacing
+            return max(total, 1)
+
+        tw = _measure_spaced_width(title_u, heading_font, spacing_head)
+        # Compute text metrics and add generous descent padding to prevent cut-off
+        try:
+            ascent, descent = heading_font.getmetrics()
+        except Exception:
+            ascent, descent = heading_font.size, int(heading_font.size*0.25)
+        fudge = int(heading_font.size * 0.35)
+        th = max(1, ascent + descent + fudge)
+        title_img = Image.new('RGBA', (tw, th), (0,0,0,0))
+        tdraw = ImageDraw.Draw(title_img)
+        _draw_text_with_spacing(tdraw, (0, 0), title_u, heading_font, (0, 0, 0), spacing=spacing_head, stroke_width=0)
+        poster.paste(title_img, (tx, ty), title_img)
+
+        # Place the square photo below the title layer with extra breathing room
+        # Use the rendered title layer height to guarantee no overlap
+        ath = th
+        py = ty + ath + max(int(height * 0.035), int(heading_font.size * 0.7))
+        poster.paste(photo, (px, py))
+
+        # Thin rule under the photo
+        rule_y = py + photo_side + int(height*0.02)
         draw.line([(margin_x, rule_y), (width - margin_x, rule_y)], fill=cream, width=max(1, width//400))
+
+        # Artist name vertically on both sides, scaled to cover poster height
+        def fit_vertical_font(text, target_h, start_size, min_size):
+            size = start_size
+            # Use strong sans serif for side labels
+            candidates = ['bahnschrift.ttf','arialbd.ttf','segoeuib.ttf','impact.ttf']
+            while size >= min_size:
+                f = _load_font(candidates, size)
+                t_w = draw.textbbox((0,0), text, font=f)[2]
+                if t_w <= target_h:
+                    return f
+                size -= 1
+            return _load_font(candidates, min_size)
+
+        pad = max(6, width//100)
+        target_h = height - 2*pad
+        art_font = fit_vertical_font(artist_u, target_h, start_size=int(width*0.1), min_size=max(14, int(width*0.02)))
+
+        # Render horizontal then rotate for each side
+        tw_bbox = draw.textbbox((0,0), artist_u, font=art_font)
+        base_w = tw_bbox[2] - tw_bbox[0]
+        base_h = tw_bbox[3] - tw_bbox[1]
+        base_img = Image.new('RGBA', (base_w, base_h), (0,0,0,0))
+        bdraw = ImageDraw.Draw(base_img)
+        bdraw.text((0,0), artist_u, font=art_font, fill=(0,0,0))
+
+        # Left side: bottom-to-top (rotate 90)
+        left_vert = base_img.rotate(90, resample=Image.Resampling.BICUBIC, expand=True)
+        l_x = pad + int(width*0.006)
+        l_y = pad + (target_h - left_vert.size[1])//2  # small adjustment if not exact
+        poster.paste(left_vert, (l_x, l_y), left_vert)
+
+        # Right side: top-to-bottom (rotate -90)
+        right_vert = base_img.rotate(-90, resample=Image.Resampling.BICUBIC, expand=True)
+        r_x = width - pad - int(width*0.006) - right_vert.size[0]
+        r_y = pad + (target_h - right_vert.size[1])//2
+        poster.paste(right_vert, (r_x, r_y), right_vert)
 
         # Tracklist block (two columns if 8 tracks)
         if tracks is None:
@@ -266,13 +369,33 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                 title_part = t
             norm_tracks.append((i, title_part.upper()))
 
+        tracklist_end_y = rule_y
+        notes_end_y = rule_y
         if norm_tracks:
-            col_count = 2 if len(norm_tracks) >= 8 else 1
+            col_count = 2 if len(norm_tracks) >= 7 else 1
             inner_w = width - 2 * margin_x
             gap = int(width * 0.05)
             col_w = (inner_w - (gap if col_count == 2 else 0)) // col_count
+
+            # Dynamically fit track fonts to column width
+            longest = max((tt for _, tt in norm_tracks), key=lambda t: len(t))
+            def fit_track_fonts(start_size, min_size):
+                size = start_size
+                while size >= min_size:
+                    bf = _load_font(['segoeui.ttf', 'arial.ttf'], size)
+                    nf = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], max(int(size*1.1), int(width*0.03)))
+                    num_w = draw.textbbox((0,0), "00. ", font=nf)[2]
+                    avail = col_w - num_w - int(width*0.01)
+                    lw = draw.textbbox((0,0), longest, font=bf)[2]
+                    if lw <= avail:
+                        return bf, nf
+                    size -= 1
+                return _load_font(['segoeui.ttf','arial.ttf'], min_size), _load_font(['bahnschrift.ttf','arialbd.ttf','segoeui.ttf'], int(min_size*1.1))
+
+            body_font, num_font = fit_track_fonts(int(width*0.035), int(width*0.022))
+
             start_y = rule_y + int(height * 0.02)
-            line_h = int(body_font.size * 1.55)
+            line_h = int(body_font.size * 1.5)
 
             for idx, (num, tt) in enumerate(norm_tracks):
                 if col_count == 2:
@@ -284,14 +407,16 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                 x = margin_x + col * (col_w + gap)
                 y = start_y + row * line_h
                 num_txt = f"{num:02d}. "
-                # Draw number in sub_font, title in body_font
-                draw.text((x+1, y+1), num_txt, font=sub_font, fill=(0,0,0))
-                draw.text((x, y), num_txt, font=sub_font, fill=cream if text_color==(0,0,0) else text_color)
-                nx = x + draw.textbbox((0,0), num_txt, font=sub_font)[2]
-                draw.text((nx+1, y+1), tt, font=body_font, fill=(0,0,0))
-                draw.text((nx, y), tt, font=body_font, fill=cream if text_color==(0,0,0) else text_color)
+                # Draw number in num_font, title in body_font
+                draw.text((x, y), num_txt, font=num_font, fill=(0,0,0))
+                nx = x + draw.textbbox((0,0), num_txt, font=num_font)[2]
+                draw.text((nx, y), tt, font=body_font, fill=(0,0,0))
 
-        # Liner notes under tracklist
+            # Compute end Y of tracklist for layout flow
+            rows = (len(norm_tracks)+1)//2 if col_count == 2 else len(norm_tracks)
+            tracklist_end_y = start_y + rows * line_h
+
+        # Liner notes under tracklist (ensure visible and non-overlapping)
         notes = (pet_info.get('liner_notes') or '').strip()
         if notes:
             def _wrap_text(draw_ctx, text, font_obj, max_w):
@@ -310,23 +435,40 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                     lines.append(current)
                 return lines
 
-            notes_font = _load_font(['segoeui.ttf', 'arial.ttf'], int(width * 0.03))
+            # Dynamically fit notes font to available height to ensure visibility
+            def fit_notes_font(start_size, min_size, avail_height):
+                size = start_size
+                while size >= min_size:
+                    nf = _load_font(['segoeui.ttf', 'arial.ttf'], size)
+                    gap = int(nf.size * 1.4)
+                    # At least one line should fit
+                    if avail_height >= gap:
+                        return nf, gap
+                    size -= 1
+                nf = _load_font(['segoeui.ttf', 'arial.ttf'], min_size)
+                return nf, int(nf.size * 1.4)
+
+            # Layout bounds for notes
+            footer_top = int(height * 0.90)
+            ny_base = tracklist_end_y + int(height * 0.03)
+            available_h = max(0, footer_top - ny_base)
+
+            notes_font, line_gap = fit_notes_font(int(width * 0.03), int(width * 0.018), available_h)
             inner_w = width - 2*margin_x
             lines = _wrap_text(draw, notes, notes_font, inner_w)
-            max_lines = 4
-            lines = lines[:max_lines]
-            # Position after track block or reserve near bottom if short
-            last_row_count = (len(norm_tracks)+1)//2 if len(norm_tracks)>=8 else len(norm_tracks)
-            ny = start_y + last_row_count * int(body_font.size * 1.55) + int(height*0.02)
-            ny = min(ny, int(height * 0.82))
+            # Fit number of lines in available height
+            max_lines_fit = max(1, available_h // line_gap)
+            lines = lines[:max_lines_fit]
             for i, line in enumerate(lines):
-                y = ny + i * int(notes_font.size * 1.4)
-                draw.text((margin_x+1, y+1), line, font=notes_font, fill=(0,0,0))
-                draw.text((margin_x, y), line, font=notes_font, fill=cream if text_color==(0,0,0) else text_color)
+                y = ny_base + i * line_gap
+                lw = draw.textbbox((0,0), line, font=notes_font)[2]
+                rx = width - margin_x - lw
+                draw.text((rx, y), line, font=notes_font, fill=(0,0,0))
+            # Track the end of notes to position stickers safely below
+            if lines:
+                notes_end_y = ny_base + (len(lines)) * line_gap
 
-        # Footer artist repetition (small) at bottom-left for balance
-        foot_y = int(height * 0.92)
-        _draw_text_with_spacing(draw, (margin_x, foot_y), artist_u, body_font, cream, spacing=spacing_body, stroke_width=0)
+        # Footer artist repetition removed to avoid duplicate artist text
 
     # If not Californication style, use the existing vibe/energy layout
     if not cali_typo:
@@ -356,7 +498,7 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
             tx = (size - tw) // 2
             ty = int(size * 0.07)
             _draw_text_with_spacing(layer_draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
-            _draw_text_with_spacing(layer_draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+            _draw_text_with_spacing(layer_draw, (tx, ty), title_draw, font_title, (0, 0, 0), spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
             layer = layer.rotate(-4, resample=Image.Resampling.BICUBIC, center=(size//2, int(size*0.15)), expand=False)
             img = Image.alpha_composite(img.convert('RGBA'), layer).convert('RGB')
             draw = ImageDraw.Draw(img)
@@ -365,14 +507,14 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
             tx = (width - tw) // 2
             ty = int(height * 0.07)
             _draw_text_with_spacing(draw, (tx+2, ty+2), title_draw, font_title, shadow, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
-            _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, text_color, spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
+            _draw_text_with_spacing(draw, (tx, ty), title_draw, font_title, (0, 0, 0), spacing=spacing, stroke_width=stroke_w, stroke_fill=stroke_c)
 
         # Artist position (bottom center)
         aw, ah = draw.textbbox((0, 0), artist, font=font_artist)[2:]
         ax = (width - aw) // 2
         ay = int(height * 0.86)
         draw.text((ax+1, ay+1), artist, font=font_artist, fill=shadow, stroke_width=1, stroke_fill=shadow)
-        draw.text((ax, ay), artist, font=font_artist, fill=text_color, stroke_width=1, stroke_fill=shadow)
+        draw.text((ax, ay), artist, font=font_artist, fill=(0, 0, 0), stroke_width=1, stroke_fill=shadow)
 
     # Optional stickers based on traits (minimal, simple icons)
     # Pick a sticker font that exists in both branches
@@ -392,15 +534,18 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     if pet_info.get('wingman_activity') in ('People-watching', 'Bird TV'):
         stickers.append('Window Sessions')
 
-    sx, sy = int(width*0.05), int(height*0.85)
+    # Move stickers to bottom-right and stack upward to avoid overlap with tracklist
+    sx_right = width - margin_x
+    # Place stickers below notes area to avoid overlap; keep within bottom frame
+    pad2 = max(6, width//100)
+    sy = max(int(height * 0.92), locals().get('notes_end_y', int(height*0.85)) + int(height * 0.03))
+    sy = min(sy, height - pad2 - int(sticker_font.size))
     for s in stickers[:2]:
-        # Draw rounded sticker
-        pad = 8
+        # Draw sticker text only (no box), right-aligned
         sw, sh = draw.textbbox((0, 0), s, font=sticker_font)[2:]
-        box = [sx-6, sy-6, sx+sw+pad, sy+sh+pad]
-        draw.rectangle(box, fill=(255, 255, 255, 180), outline=(0,0,0))
-        draw.text((sx, sy), s, font=sticker_font, fill=(0, 0, 0))
-        sy -= sh + 18
+        tx = sx_right - sw
+        draw.text((tx, sy), s, font=sticker_font, fill=(0, 0, 0))
+        sy -= sh + 12
 
     # Save
     # Optional frame for poster mode
