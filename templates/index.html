@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Album Cover Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Pet Album Cover Generator</h1>
+        <p>Let's create a rockstar persona for your pet.</p>
+        
+        <form action="/generate" method="post" enctype="multipart/form-data">
+            
+            <h2>Basic Info</h2>
+            <label for="artist_name">Pet's Name (Artist Name):</label>
+            <input type="text" id="artist_name" name="artist_name" required>
+            
+            <label for="album_title">Album Title:</label>
+            <input type="text" id="album_title" name="album_title" value="My Pet's Greatest Hits">
+
+            <h2>Energy and Vibe</h2>
+            <label for="energy">How energetic is your pet?</label>
+            <select id="energy" name="energy">
+                <option value="Chill">Chill</option>
+                <option value="Balanced" selected>Balanced</option>
+                <option value="Zoomies Every Hour">Zoomies Every Hour</option>
+            </select>
+
+            <label for="vibe">What's their overall vibe?</label>
+            <select id="vibe" name="vibe">
+                <option value="Regal">Regal</option>
+                <option value="Goofball" selected>Goofball</option>
+                <option value="Adventurer">Adventurer</option>
+                <option value="Snuggler">Snuggler</option>
+                <option value="Bossy">Bossy</option>
+                <option value="Wise Sage">Wise Sage</option>
+            </select>
+
+            <h2>Social Personality</h2>
+            <label for="social">How social are they?</label>
+            <select id="social" name="social">
+                <option value="Shy">Shy</option>
+                <option value="Selective" selected>Selective</option>
+                <option value="Party animal">Party animal</option>
+            </select>
+
+            <label for="wingman_activity">Favorite wingman activity?</label>
+            <select id="wingman_activity" name="wingman_activity">
+                <option value="People-watching" selected>People-watching</option>
+                <option value="Park meetups">Park meetups</option>
+                <option value="Supervising from a distance">Supervising from a distance</option>
+            </select>
+
+            <h2>Quirks and Signature Moves</h2>
+            <label for="signature_move">Signature move?</label>
+            <select id="signature_move" name="signature_move">
+                <option value="Head tilt" selected>Head tilt</option>
+                <option value="Side-eye">Side-eye</option>
+                <option value="Zoomies">Zoomies</option>
+                <option value="Slow blink">Slow blink</option>
+                <option value="Spooky stare">Spooky stare</option>
+                <option value="Bread loaf">Bread loaf</option>
+            </select>
+
+            <label for="weirdest_habit">Weirdest habit?</label>
+            <select id="weirdest_habit" name="weirdest_habit">
+                <option value="Stealing socks">Stealing socks</option>
+                <option value="Staring at walls" selected>Staring at walls</option>
+                <option value="Herding humans">Herding humans</option>
+                <option value="Vocal monologues">Vocal monologues</option>
+            </select>
+
+            <h2>Play and Hobbies</h2>
+            <label for="favorite_activity">Favorite activity?</label>
+            <select id="favorite_activity" name="favorite_activity">
+                <option value="Chasing">Chasing</option>
+                <option value="Fetch">Fetch</option>
+                <option value="Puzzle toys">Puzzle toys</option>
+                <option value="Sunbathing" selected>Sunbathing</option>
+                <option value="Bird TV">Bird TV</option>
+                <option value="Box forts">Box forts</option>
+            </select>
+
+            <h2>Affection and Boundaries</h2>
+            <label for="cuddle_factor">Cuddle factor?</label>
+            <select id="cuddle_factor" name="cuddle_factor">
+                <option value="Only when I decide">Only when I decide</option>
+                <option value="Sometimes" selected>Sometimes</option>
+                <option value="Velcro">Velcro</option>
+            </select>
+
+            <label for="petting_rules">Petting rules?</label>
+            <select id="petting_rules" name="petting_rules">
+                <option value="Head only" selected>Head only</option>
+                <option value="Belly traps">Belly traps</option>
+                <option value="All-access">All-access</option>
+                <option value="Don't touch the royal">Don't touch the royal</option>
+            </select>
+
+            <h2>Bravery and Mischief</h2>
+            <label for="sneakiness">Sneakiness level?</label>
+            <select id="sneakiness" name="sneakiness">
+                <option value="Law-abiding">Law-abiding</option>
+                <option value="Occasional heist" selected>Occasional heist</option>
+                <option value="Master thief">Master thief</option>
+            </select>
+
+            <h2>Communication</h2>
+            <label for="vocalness_description">Vocalness?</label>
+            <select id="vocalness_description" name="vocalness_description">
+                <option value="Silent film star">Silent film star</option>
+                <option value="Chatty" selected>Chatty</option>
+                <option value="Opera">Opera</option>
+            </select>
+
+            <label for="favorite_sound">Favorite sound?</label>
+            <select id="favorite_sound" name="favorite_sound">
+                <option value="Purr/soft chirps" selected>Purr/soft chirps</option>
+                <option value="Barks/meows">Barks/meows</option>
+                <option value="Snorts/bleps">Snorts/bleps</option>
+                <option value="Dramatic sighs">Dramatic sighs</option>
+            </select>
+
+            <h2>Artistic Vision</h2>
+            <label for="liner_notes">Describe your pet's 'artistic vision' in 2-3 sentences:</label>
+            <textarea id="liner_notes" name="liner_notes" rows="3">A mysterious and profound artist.</textarea>
+
+            <h2>Album Artwork</h2>
+            <label for="photos">Upload 1-5 photos of your pet:</label>
+            <input type="file" id="photos" name="photos" multiple accept="image/*">
+
+            <button type="submit">Generate Album Cover</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Pet's Album</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ pet_info.album_title }}</h1>
+        <h2>By {{ pet_info.artist_name }}</h2>
+
+        <div class="album-details">
+            <div class="track-list">
+                <h3>Track List</h3>
+                <ol>
+                    {% for track in content.track_list %}
+                        <li>{{ track.split('. ', 1)[1] }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+
+            <div class="liner-notes">
+                <h3>Liner Notes</h3>
+                <p>{{ pet_info.liner_notes }}</p>
+            </div>
+        </div>
+
+        {% if content.easter_eggs %}
+        <div class="easter-eggs">
+            <h3>Easter Eggs</h3>
+            <ul>
+                {% for egg in content.easter_eggs %}
+                    <li>{{ egg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <a href="/">Create another album</a>
+    </div>
+</body>
+</html>

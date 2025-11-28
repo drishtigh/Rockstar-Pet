@@ -1,249 +1,104 @@
 import random
+import sys
+
+def print_progress(iteration, total, prefix='', suffix='', length=50, fill='█'):
+    """
+    Call in a loop to create terminal progress bar
+    """
+    percent = ("{0:.1f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + '-' * (length - filled_length)
+    sys.stdout.write(f'\r{prefix} |{bar}| {percent}% {suffix}')
+    sys.stdout.flush()
+
+def ask_multiple_choice(prompt, options, default_key, question_num, total_questions):
+    """Handles multiple choice questions with skip option and progress bar."""
+    print_progress(question_num - 1, total_questions, prefix='Progress:', suffix='Complete', length=50)
+    print(f"\n{prompt}")
+    for key, value in options.items():
+        print(f"   {key}) {value}")
+    
+    while True:
+        choice = input(f"Enter the letter of your choice (or press Enter for default: {options[default_key]}): ").upper()
+        if not choice:
+            return options[default_key]
+        if choice in options:
+            return options[choice]
+        print("Invalid choice. Please try again.")
+
+def ask_text_input(prompt, default, question_num, total_questions, required=False):
+    """Handles text input questions with skip option and progress bar."""
+    print_progress(question_num - 1, total_questions, prefix='Progress:', suffix='Complete', length=50)
+    while True:
+        default_text = f"(or press Enter for default: {default})" if default and not required else ""
+        response = input(f"\n{prompt} {default_text}: ")
+        if response:
+            return response
+        if not required:
+            return default
+        print("This information is required.")
 
 def get_pet_info():
     """Gathers information about the user's pet to create an album cover."""
-
     pet_info = {}
+    total_questions = 15 # 12 questions + name + title + photos + liner notes
 
     print("Welcome to the Pet Album Cover Generator!")
     print("Let's create a rockstar persona for your pet.")
     print("------------------------------------------")
 
     # --- Basic Info ---
-    pet_info['artist_name'] = input("What is your pet's name? (This will be the artist name): ")
-    pet_info['album_title'] = input("What is the title of this album?: ")
+    pet_info['artist_name'] = ask_text_input("What is your pet's name? (This will be the artist name)", None, 1, total_questions, required=True)
+    pet_info['album_title'] = ask_text_input("What is the title of this album?", f"{pet_info['artist_name']}'s Greatest Hits", 2, total_questions)
 
-    # --- Energy and Vibe ---
-    print("\n--- Energy and Vibe ---")
-    energy_options = {
-        'A': 'Chill',
-        'B': 'Balanced',
-        'C': 'Zoomies Every Hour'
-    }
-    while True:
-        print("1. How energetic is your pet?")
-        for key, value in energy_options.items():
-            print(f"   {key}) {value}")
-        energy = input("Enter the letter of your choice: ").upper()
-        if energy in energy_options:
-            pet_info['energy'] = energy_options[energy]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    # --- Questions ---
+    question_num = 3
+    energy_options = {'A': 'Chill', 'B': 'Balanced', 'C': 'Zoomies Every Hour'}
+    pet_info['energy'] = ask_multiple_choice("How energetic is your pet?", energy_options, 'B', question_num, total_questions); question_num += 1
 
-    vibe_options = {
-        'A': 'Regal',
-        'B': 'Goofball',
-        'C': 'Adventurer',
-        'D': 'Snuggler',
-        'E': 'Bossy',
-        'F': 'Wise Sage'
-    }
-    while True:
-        print("2. What's their overall vibe?")
-        for key, value in vibe_options.items():
-            print(f"   {key}) {value}")
-        vibe = input("Enter the letter of your choice: ").upper()
-        if vibe in vibe_options:
-            pet_info['vibe'] = vibe_options[vibe]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    vibe_options = {'A': 'Regal', 'B': 'Goofball', 'C': 'Adventurer', 'D': 'Snuggler', 'E': 'Bossy', 'F': 'Wise Sage'}
+    pet_info['vibe'] = ask_multiple_choice("What's their overall vibe?", vibe_options, 'B', question_num, total_questions); question_num += 1
 
-    # --- Social Personality ---
-    print("\n--- Social Personality ---")
-    social_options = {
-        'A': 'Shy',
-        'B': 'Selective',
-        'C': 'Party animal'
-    }
-    while True:
-        print("3. How social are they?")
-        for key, value in social_options.items():
-            print(f"   {key}) {value}")
-        social = input("Enter the letter of your choice: ").upper()
-        if social in social_options:
-            pet_info['social'] = social_options[social]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    social_options = {'A': 'Shy', 'B': 'Selective', 'C': 'Party animal'}
+    pet_info['social'] = ask_multiple_choice("How social are they?", social_options, 'B', question_num, total_questions); question_num += 1
 
-    wingman_options = {
-        'A': 'People-watching',
-        'B': 'Park meetups',
-        'C': 'Supervising from a distance'
-    }
-    while True:
-        print("4. Favorite wingman activity?")
-        for key, value in wingman_options.items():
-            print(f"   {key}) {value}")
-        wingman = input("Enter the letter of your choice: ").upper()
-        if wingman in wingman_options:
-            pet_info['wingman_activity'] = wingman_options[wingman]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    wingman_options = {'A': 'People-watching', 'B': 'Park meetups', 'C': 'Supervising from a distance'}
+    pet_info['wingman_activity'] = ask_multiple_choice("Favorite wingman activity?", wingman_options, 'A', question_num, total_questions); question_num += 1
 
-    # --- Quirks and Signature Moves ---
-    print("\n--- Quirks and Signature Moves ---")
-    move_options = {
-        'A': 'Head tilt',
-        'B': 'Side-eye',
-        'C': 'Zoomies',
-        'D': 'Slow blink',
-        'E': 'Spooky stare',
-        'F': 'Bread loaf'
-    }
-    while True:
-        print("5. Signature move?")
-        for key, value in move_options.items():
-            print(f"   {key}) {value}")
-        move = input("Enter the letter of your choice: ").upper()
-        if move in move_options:
-            pet_info['signature_move'] = move_options[move]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    move_options = {'A': 'Head tilt', 'B': 'Side-eye', 'C': 'Zoomies', 'D': 'Slow blink', 'E': 'Spooky stare', 'F': 'Bread loaf'}
+    pet_info['signature_move'] = ask_multiple_choice("Signature move?", move_options, 'A', question_num, total_questions); question_num += 1
 
-    habit_options = {
-        'A': 'Stealing socks',
-        'B': 'Staring at walls',
-        'C': 'Herding humans',
-        'D': 'Vocal monologues'
-    }
-    while True:
-        print("6. Weirdest habit?")
-        for key, value in habit_options.items():
-            print(f"   {key}) {value}")
-        habit = input("Enter the letter of your choice: ").upper()
-        if habit in habit_options:
-            pet_info['weirdest_habit'] = habit_options[habit]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    habit_options = {'A': 'Stealing socks', 'B': 'Staring at walls', 'C': 'Herding humans', 'D': 'Vocal monologues'}
+    pet_info['weirdest_habit'] = ask_multiple_choice("Weirdest habit?", habit_options, 'B', question_num, total_questions); question_num += 1
 
-    # --- Play and Hobbies ---
-    print("\n--- Play and Hobbies ---")
-    activity_options = {
-        'A': 'Chasing',
-        'B': 'Fetch',
-        'C': 'Puzzle toys',
-        'D': 'Sunbathing',
-        'E': 'Bird TV',
-        'F': 'Box forts'
-    }
-    while True:
-        print("7. Favorite activity?")
-        for key, value in activity_options.items():
-            print(f"   {key}) {value}")
-        activity = input("Enter the letter of your choice: ").upper()
-        if activity in activity_options:
-            pet_info['favorite_activity'] = activity_options[activity]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    activity_options = {'A': 'Chasing', 'B': 'Fetch', 'C': 'Puzzle toys', 'D': 'Sunbathing', 'E': 'Bird TV', 'F': 'Box forts'}
+    pet_info['favorite_activity'] = ask_multiple_choice("Favorite activity?", activity_options, 'D', question_num, total_questions); question_num += 1
 
-    # --- Affection and Boundaries ---
-    print("\n--- Affection and Boundaries ---")
-    cuddle_options = {
-        'A': 'Only when I decide',
-        'B': 'Sometimes',
-        'C': 'Velcro'
-    }
-    while True:
-        print("8. Cuddle factor?")
-        for key, value in cuddle_options.items():
-            print(f"   {key}) {value}")
-        cuddle = input("Enter the letter of your choice: ").upper()
-        if cuddle in cuddle_options:
-            pet_info['cuddle_factor'] = cuddle_options[cuddle]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    cuddle_options = {'A': 'Only when I decide', 'B': 'Sometimes', 'C': 'Velcro'}
+    pet_info['cuddle_factor'] = ask_multiple_choice("Cuddle factor?", cuddle_options, 'B', question_num, total_questions); question_num += 1
 
-    petting_options = {
-        'A': 'Head only',
-        'B': 'Belly traps',
-        'C': 'All-access',
-        'D': "Don't touch the royal"
-    }
-    while True:
-        print("9. Petting rules?")
-        for key, value in petting_options.items():
-            print(f"   {key}) {value}")
-        petting = input("Enter the letter of your choice: ").upper()
-        if petting in petting_options:
-            pet_info['petting_rules'] = petting_options[petting]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    petting_options = {'A': 'Head only', 'B': 'Belly traps', 'C': 'All-access', 'D': "Don't touch the royal"}
+    pet_info['petting_rules'] = ask_multiple_choice("Petting rules?", petting_options, 'A', question_num, total_questions); question_num += 1
 
-    # --- Bravery and Mischief ---
-    print("\n--- Bravery and Mischief ---")
-    sneakiness_options = {
-        'A': 'Law-abiding',
-        'B': 'Occasional heist',
-        'C': 'Master thief'
-    }
-    while True:
-        print("10. Sneakiness level?")
-        for key, value in sneakiness_options.items():
-            print(f"   {key}) {value}")
-        sneakiness = input("Enter the letter of your choice: ").upper()
-        if sneakiness in sneakiness_options:
-            pet_info['sneakiness'] = sneakiness_options[sneakiness]
-            if sneakiness == 'C': # Master thief
-                 pet_info['mischief'] = 5
-            elif sneakiness == 'B': # Occasional heist
-                pet_info['mischief'] = 3
-            else:
-                pet_info['mischief'] = 1
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    sneakiness_options = {'A': 'Law-abiding', 'B': 'Occasional heist', 'C': 'Master thief'}
+    sneakiness = ask_multiple_choice("Sneakiness level?", sneakiness_options, 'B', question_num, total_questions); question_num += 1
+    pet_info['sneakiness'] = sneakiness
+    if sneakiness == 'Master thief': pet_info['mischief'] = 5
+    elif sneakiness == 'Occasional heist': pet_info['mischief'] = 3
+    else: pet_info['mischief'] = 1
 
-    # --- Communication ---
-    print("\n--- Communication ---")
-    vocalness_options = {
-        'A': 'Silent film star',
-        'B': 'Chatty',
-        'C': 'Opera'
-    }
-    while True:
-        print("11. Vocalness?")
-        for key, value in vocalness_options.items():
-            print(f"   {key}) {value}")
-        vocalness = input("Enter the letter of your choice: ").upper()
-        if vocalness in vocalness_options:
-            pet_info['vocalness_description'] = vocalness_options[vocalness]
-            if vocalness == 'C': # Opera
-                pet_info['vocalness'] = 5
-            elif vocalness == 'B': # Chatty
-                pet_info['vocalness'] = 3
-            else:
-                pet_info['vocalness'] = 1
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
+    vocalness_options = {'A': 'Silent film star', 'B': 'Chatty', 'C': 'Opera'}
+    vocalness_desc = ask_multiple_choice("Vocalness?", vocalness_options, 'B', question_num, total_questions); question_num += 1
+    pet_info['vocalness_description'] = vocalness_desc
+    if vocalness_desc == 'Opera': pet_info['vocalness'] = 5
+    elif vocalness_desc == 'Chatty': pet_info['vocalness'] = 3
+    else: pet_info['vocalness'] = 1
+    
+    sound_options = {'A': 'Purr/soft chirps', 'B': 'Barks/meows', 'C': 'Snorts/bleps', 'D': 'Dramatic sighs'}
+    pet_info['favorite_sound'] = ask_multiple_choice("Favorite sound?", sound_options, 'A', question_num, total_questions); question_num += 1
 
-    sound_options = {
-        'A': 'Purr/soft chirps',
-        'B': 'Barks/meows',
-        'C': 'Snorts/bleps',
-        'D': 'Dramatic sighs'
-    }
-    while True:
-        print("12. Favorite sound?")
-        for key, value in sound_options.items():
-            print(f"   {key}) {value}")
-        sound = input("Enter the letter of your choice: ").upper()
-        if sound in sound_options:
-            pet_info['favorite_sound'] = sound_options[sound]
-            break
-        else:
-            print("Invalid choice. Please select one of the options.")
-
-    # --- Photos ---
+    # --- Final Steps ---
+    print_progress(question_num - 1, total_questions, prefix='Progress:', suffix='Complete', length=50)
     print("\n--- Album Artwork ---")
     photos = []
     for i in range(5):
@@ -252,12 +107,13 @@ def get_pet_info():
             break
         photos.append(photo_path)
     pet_info['photos'] = photos
+    question_num +=1
 
-    # --- Liner Notes ---
-    print("\n--- Artistic Vision ---")
-    pet_info['liner_notes'] = input("Describe your pet's 'artistic vision' in 2-3 sentences: ")
+    print_progress(question_num - 1, total_questions, prefix='Progress:', suffix='Complete', length=50)
+    pet_info['liner_notes'] = ask_text_input("Describe your pet's 'artistic vision' in 2-3 sentences", "A mysterious and profound artist.", question_num, total_questions)
+    question_num += 1
 
-
+    print_progress(total_questions, total_questions, prefix='Progress:', suffix='Complete', length=50)
     print("\n\n--- Album Details Collected ---")
     for key, value in pet_info.items():
         print(f"{key.replace('_', ' ').title()}: {value}")
