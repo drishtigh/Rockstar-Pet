@@ -154,7 +154,8 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
 
     # Poster is always on; style controls photo treatment only
     poster_mode = True
-    poster_style = pet_info.get('poster_style', 'auto')
+    # Force single photo effect: melodrama only
+    poster_style = 'melodrama'
 
     # Poster 4:5 aspect
     if poster_mode:
@@ -189,17 +190,8 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
         noise_rgb = Image.merge('RGB', (noise, noise, noise))
         return Image.blend(im, noise_rgb, opacity/255.0)
 
-    chosen_style = poster_style
-    if poster_style == 'auto':
-        style_map = {
-            'Regal': 'californication',
-            'Goofball': 'gig',
-            'Adventurer': 'californication',
-            'Snuggler': 'melodrama',
-            'Bossy': 'gig',
-            'Wise Sage': 'melodrama',
-        }
-        chosen_style = style_map.get(vibe, 'californication')
+    # Use only melodrama photo treatment
+    chosen_style = 'melodrama'
 
     if poster_mode:
         if chosen_style == 'californication':
@@ -229,6 +221,22 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     # Create poster background based on photo palette
     dom = _dominant_color(photo)
     bg_color = _lighten_for_background(dom)
+
+    def _darken_for_text(rgb, max_luma=150):
+        r, g, b = rgb
+        def lum(rr, gg, bb):
+            return 0.299*rr + 0.587*gg + 0.114*bb
+        # Darken towards black until sufficiently dark for contrast
+        for _ in range(8):
+            if lum(r, g, b) <= max_luma:
+                break
+            r = int(r * 0.85)
+            g = int(g * 0.85)
+            b = int(b * 0.85)
+        return (r, g, b)
+
+    title_color = dom
+    text_color = _darken_for_text(dom)
     poster = Image.new('RGB', (width, height), bg_color)
     draw = ImageDraw.Draw(poster)
     cream = (245, 240, 225)
@@ -250,19 +258,42 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
         margin_top = int(height * 0.045)
         spacing_head = 2
         spacing_body = 1
+        # Fixed photo anchor: keep photo in a stable vertical position regardless of title length
+        photo_top_y = int(height * 0.14)
+        # Reserve vertical band for title between margin_top and photo_top_y
+        title_band_top = margin_top
+        title_band_bottom = photo_top_y
+        title_band_height = max(1, title_band_bottom - title_band_top)
+        title_box_w = width - 2*margin_x
 
-        # Fit heading font to available width
-        def fit_font(candidates, text, max_w, start_size, min_size):
+        def _measure_spaced_width(text, font, spacing):
+            td = ImageDraw.Draw(Image.new('RGB', (1,1)))
+            total = 0
+            for i, ch in enumerate(text):
+                ch_w = td.textbbox((0,0), ch, font=font)[2]
+                total += ch_w
+                if i != len(text)-1:
+                    total += spacing
+            return max(total, 1)
+
+        # Fit heading font to available width AND height of the reserved title band
+        def fit_font_band(candidates, text, box_w, band_h, spacing_px, start_size, min_size):
             size = start_size
             while size >= min_size:
                 f = _load_font(candidates, size)
-                tw = draw.textbbox((0,0), text, font=f)[2]
-                if tw <= max_w:
+                tw = _measure_spaced_width(text, f, spacing_px)
+                try:
+                    ascent, descent = f.getmetrics()
+                except Exception:
+                    ascent, descent = f.size, int(f.size * 0.25)
+                fudge = int(f.size * 0.35)
+                th = ascent + descent + fudge
+                if tw <= box_w and th <= band_h:
                     return f
                 size -= 1
             return _load_font(candidates, min_size)
 
-        heading_font = fit_font(
+        heading_font = fit_font_band(
             [
                 'impact.ttf', 'ariblk.ttf', 'arialbd.ttf',
                 'bahnschrift.ttf', 'segoeuib.ttf',
@@ -270,86 +301,172 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                 'Poppins-ExtraBold.ttf', 'Poppins-ExtraBold.otf'
             ],
             title_u,
-            max_w=width - 2*margin_x,
-            start_size=int(width*0.09),
-            min_size=int(width*0.05)
+            box_w=title_box_w,
+            band_h=title_band_height,
+            spacing_px=spacing_head,
+            start_size=int(width*0.16),
+            min_size=int(width*0.04)
         )
         sub_font = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], int(width * 0.045))
 
-        # Album title at the very top (render on a separate layer to avoid glyph clipping)
-        tx, ty = margin_x, margin_top
+        # Album title occupies the band; bottom-align to touch the photo
+        ty = title_band_bottom  # we will subtract title image height later for bottom alignment
         # Measure width with custom letter spacing
-        def _measure_spaced_width(text, font, spacing):
-            tmp_draw = ImageDraw.Draw(Image.new('RGB', (1,1)))
-            total = 0
-            for i, ch in enumerate(text):
-                ch_w = tmp_draw.textbbox((0,0), ch, font=font)[2]
-                total += ch_w
-                if i != len(text)-1:
-                    total += spacing
-            return max(total, 1)
-
         tw = _measure_spaced_width(title_u, heading_font, spacing_head)
         # Compute text metrics and add generous descent padding to prevent cut-off
-        try:
-            ascent, descent = heading_font.getmetrics()
-        except Exception:
-            ascent, descent = heading_font.size, int(heading_font.size*0.25)
-        fudge = int(heading_font.size * 0.35)
-        th = max(1, ascent + descent + fudge)
-        title_img = Image.new('RGBA', (tw, th), (0,0,0,0))
+        # Use a direct bounding box height for reliability with multi-word titles
+        bbox_full = draw.textbbox((0,0), title_u, font=heading_font)
+        raw_h = bbox_full[3] - bbox_full[1]
+        # Padding accounts for stroke, potential overshoot glyphs, and spacing artifacts
+        stroke_w = max(1, heading_font.size // 16)
+        pad_extra = int(heading_font.size * 0.28) + stroke_w * 2
+        th = max(1, raw_h + pad_extra)
+        # Outline settings: contrasting color and safe padding to avoid clipping
+        def _lum(c):
+            r,g,b = c
+            return 0.299*r + 0.587*g + 0.114*b
+        outline_color = (0,0,0) if _lum(title_color) > 150 else (255,255,255)
+        stroke_w = max(1, heading_font.size // 16)
+        pad_outline = stroke_w + heading_font.size//12 + 4
+        title_img = Image.new('RGBA', (tw + pad_outline*2, th + pad_outline*2), (0,0,0,0))
         tdraw = ImageDraw.Draw(title_img)
-        _draw_text_with_spacing(tdraw, (0, 0), title_u, heading_font, (0, 0, 0), spacing=spacing_head, stroke_width=0)
-        poster.paste(title_img, (tx, ty), title_img)
+        _draw_text_with_spacing(
+            tdraw,
+            (pad_outline, pad_outline),
+            title_u,
+            heading_font,
+            title_color,
+            spacing=spacing_head,
+            stroke_width=stroke_w,
+            stroke_fill=outline_color
+        )
+        # Post-render padding expansion if any stroke touches edges (edge scan to avoid clipping)
+        edge_bbox = title_img.getbbox()
+        if edge_bbox:
+            left, top, right, bottom = edge_bbox
+            needs_expand = left <= 1 or top <= 1 or right >= title_img.size[0]-2 or bottom >= title_img.size[1]-2
+            if needs_expand:
+                extra = max(6, heading_font.size//10 + 4)
+                expanded = Image.new('RGBA', (title_img.size[0] + extra*2, title_img.size[1] + extra*2), (0,0,0,0))
+                expanded.paste(title_img, (extra, extra))
+                title_img = expanded
+        # Post-render scaling (same idea as vertical artist scaling) to ensure title fits inside frame
+        frame_pad = max(6, width//100)
+        allowed_w = width - 2*frame_pad
+        if title_img.size[0] > allowed_w:
+            scale = allowed_w / title_img.size[0]
+            new_w = allowed_w
+            new_h = max(1, int(title_img.size[1] * scale))
+            title_img = title_img.resize((new_w, new_h), resample=Image.Resampling.LANCZOS)
+        # Center align title horizontally
+        tx = (width - title_img.size[0]) // 2
+        # Adjust vertical position so title bottom touches the fixed photo top
+        ty_adjusted = ty - title_img.size[1]
+        poster.paste(title_img, (tx, ty_adjusted), title_img)
 
-        # Place the square photo below the title layer with extra breathing room
-        # Use the rendered title layer height to guarantee no overlap
-        ath = th
-        py = ty + ath + max(int(height * 0.035), int(heading_font.size * 0.7))
+        # Place the square photo at fixed anchor (independent of title height)
+        py = photo_top_y
         poster.paste(photo, (px, py))
 
         # Thin rule under the photo
         rule_y = py + photo_side + int(height*0.02)
         draw.line([(margin_x, rule_y), (width - margin_x, rule_y)], fill=cream, width=max(1, width//400))
 
-        # Artist name vertically on both sides, scaled to cover poster height
+        # Artist name vertically on both sides, scaled to fit from photo top to bottom frame
         def fit_vertical_font(text, target_h, start_size, min_size):
             size = start_size
-            # Use strong sans serif for side labels
-            candidates = ['bahnschrift.ttf','arialbd.ttf','segoeuib.ttf','impact.ttf']
+            # Lock artist font to Bahnschrift for consistency
+            candidates = ['bahnschrift.ttf']
             while size >= min_size:
                 f = _load_font(candidates, size)
                 t_w = draw.textbbox((0,0), text, font=f)[2]
-                if t_w <= target_h:
+                # Add padding fudge so rotation doesn't clip
+                pad_fudge = max(4, size // 6)
+                if (t_w + 2*pad_fudge) <= target_h:
                     return f
                 size -= 1
             return _load_font(candidates, min_size)
 
         pad = max(6, width//100)
-        target_h = height - 2*pad
+        # Constrain vertical text to not go above the photo top
+        target_h = (height - pad) - py
         art_font = fit_vertical_font(artist_u, target_h, start_size=int(width*0.1), min_size=max(14, int(width*0.02)))
+        # Ensure album title remains the largest text
+        if art_font.size >= heading_font.size:
+            safe_size = max(10, heading_font.size - 2)
+            art_font = _load_font(['bahnschrift.ttf','arialbd.ttf','segoeuib.ttf','impact.ttf'], safe_size)
 
         # Render horizontal then rotate for each side
         tw_bbox = draw.textbbox((0,0), artist_u, font=art_font)
         base_w = tw_bbox[2] - tw_bbox[0]
         base_h = tw_bbox[3] - tw_bbox[1]
-        base_img = Image.new('RGBA', (base_w, base_h), (0,0,0,0))
+        pad_v = max(4, art_font.size // 6)
+        base_img = Image.new('RGBA', (base_w + 2*pad_v, base_h + 2*pad_v), (0,0,0,0))
         bdraw = ImageDraw.Draw(base_img)
-        bdraw.text((0,0), artist_u, font=art_font, fill=(0,0,0))
+        bdraw.text((pad_v, pad_v), artist_u, font=art_font, fill=text_color)
 
-        # Left side: bottom-to-top (rotate 90)
-        left_vert = base_img.rotate(90, resample=Image.Resampling.BICUBIC, expand=True)
+        allowed_h = height - pad - py
+
+        def _stack_vertical(text, font, color, allowed_height):
+            # Determine per-character font size if needed for stacking.
+            chars = list(text)
+            size = font.size
+            line_gap_factor = 1.05
+            # If current size too big, reduce until fits.
+            while size > 8:
+                f = _load_font(['bahnschrift.ttf'], size)
+                line_h = int(size * line_gap_factor)
+                total_h = len(chars) * line_h
+                if total_h <= allowed_height:
+                    font_final = f
+                    break
+                size -= 1
+            else:
+                font_final = _load_font(['bahnschrift.ttf'], size)
+                line_h = int(size * line_gap_factor)
+                total_h = len(chars) * line_h
+            img_w = max(draw.textbbox((0,0), 'W', font=font_final)[2], int(font_final.size*0.8)) + 4
+            img_h = total_h + 4
+            v_img = Image.new('RGBA', (img_w, img_h), (0,0,0,0))
+            v_draw = ImageDraw.Draw(v_img)
+            y_cursor = 2
+            for ch in chars:
+                v_draw.text((2, y_cursor), ch, font=font_final, fill=color)
+                y_cursor += line_h
+            return v_img
+
+        # Rotated approach first
+        left_rot = base_img.rotate(90, resample=Image.Resampling.BICUBIC, expand=True)
+        right_rot = base_img.rotate(-90, resample=Image.Resampling.BICUBIC, expand=True)
+
+        need_stack = False
+        if left_rot.size[1] > allowed_h:
+            scale = allowed_h / left_rot.size[1]
+            # If scale is very small, stacked vertical characters will be clearer.
+            if scale < 0.6:
+                need_stack = True
+            else:
+                left_rot = left_rot.resize((max(1, int(left_rot.size[0]*scale)), allowed_h), resample=Image.Resampling.LANCZOS)
+                right_rot = right_rot.resize((max(1, int(right_rot.size[0]*scale)), allowed_h), resample=Image.Resampling.LANCZOS)
+
+        if need_stack:
+            left_vert = _stack_vertical(artist_u, art_font, text_color, allowed_h)
+            right_vert = _stack_vertical(artist_u, art_font, text_color, allowed_h)
+        else:
+            left_vert = left_rot
+            right_vert = right_rot
+
+        # Paste left (bottom-to-top visual style retained by rotation; stacked version already vertical)
         l_x = pad + int(width*0.006)
-        l_y = pad + (target_h - left_vert.size[1])//2  # small adjustment if not exact
+        l_y = py
         poster.paste(left_vert, (l_x, l_y), left_vert)
 
-        # Right side: top-to-bottom (rotate -90)
-        right_vert = base_img.rotate(-90, resample=Image.Resampling.BICUBIC, expand=True)
+        # Paste right
         r_x = width - pad - int(width*0.006) - right_vert.size[0]
-        r_y = pad + (target_h - right_vert.size[1])//2
+        r_y = py
         poster.paste(right_vert, (r_x, r_y), right_vert)
 
-        # Tracklist block (two columns if 8 tracks)
+        # Tracklist block: fixed areas for tracks (left) and liner notes (right)
         if tracks is None:
             # Fallback: try to derive tracks locally
             try:
@@ -374,28 +491,44 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
         if norm_tracks:
             col_count = 2 if len(norm_tracks) >= 7 else 1
             inner_w = width - 2 * margin_x
-            gap = int(width * 0.05)
-            col_w = (inner_w - (gap if col_count == 2 else 0)) // col_count
+            gap = int(width * 0.04)
+            tracks_w = inner_w
 
-            # Dynamically fit track fonts to column width
-            longest = max((tt for _, tt in norm_tracks), key=lambda t: len(t))
-            def fit_track_fonts(start_size, min_size):
+            # Tracks area rectangle
+            t_area_x = margin_x
+            t_area_y = rule_y + int(height * 0.02)
+            t_area_w = tracks_w
+            t_area_h = height - max(6, width//100) - t_area_y
+
+            # Determine rows per column and fit font by width AND height
+            rows = (len(norm_tracks)+1)//2 if col_count == 2 else len(norm_tracks)
+            longest = max((tt for _, tt in norm_tracks), key=lambda t: len(t)) if norm_tracks else ""
+
+            def fit_track_fonts_box(start_size, min_size):
                 size = start_size
                 while size >= min_size:
                     bf = _load_font(['segoeui.ttf', 'arial.ttf'], size)
-                    nf = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], max(int(size*1.1), int(width*0.03)))
+                    nf = _load_font(['bahnschrift.ttf', 'arialbd.ttf', 'segoeui.ttf'], max(int(size*1.08), int(width*0.028)))
                     num_w = draw.textbbox((0,0), "00. ", font=nf)[2]
+                    col_w = (t_area_w - (gap if col_count == 2 else 0)) // col_count
                     avail = col_w - num_w - int(width*0.01)
                     lw = draw.textbbox((0,0), longest, font=bf)[2]
-                    if lw <= avail:
-                        return bf, nf
+                    line_h = int(bf.size * 1.5)
+                    need_h = rows * line_h
+                    if lw <= avail and need_h <= t_area_h:
+                        return bf, nf, line_h
                     size -= 1
-                return _load_font(['segoeui.ttf','arial.ttf'], min_size), _load_font(['bahnschrift.ttf','arialbd.ttf','segoeui.ttf'], int(min_size*1.1))
+                bf = _load_font(['segoeui.ttf','arial.ttf'], min_size)
+                nf = _load_font(['bahnschrift.ttf','arialbd.ttf','segoeui.ttf'], int(min_size*1.08))
+                return bf, nf, int(bf.size*1.5)
 
-            body_font, num_font = fit_track_fonts(int(width*0.035), int(width*0.022))
-
-            start_y = rule_y + int(height * 0.02)
-            line_h = int(body_font.size * 1.5)
+            body_font, num_font, line_h = fit_track_fonts_box(int(width*0.035), int(width*0.02))
+            # Cap track fonts so title remains the biggest
+            if body_font.size >= heading_font.size:
+                new_size = max(10, heading_font.size - 2)
+                body_font = _load_font(['segoeui.ttf','arial.ttf'], new_size)
+                num_font = _load_font(['bahnschrift.ttf','arialbd.ttf','segoeui.ttf'], max(int(new_size*1.08), int(width*0.028)))
+                line_h = int(body_font.size * 1.5)
 
             for idx, (num, tt) in enumerate(norm_tracks):
                 if col_count == 2:
@@ -403,18 +536,15 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                     row = idx if col == 0 else idx - (len(norm_tracks)+1)//2
                 else:
                     col, row = 0, idx
-
-                x = margin_x + col * (col_w + gap)
-                y = start_y + row * line_h
+                col_w = (t_area_w - (gap if col_count == 2 else 0)) // col_count
+                x = t_area_x + col * (col_w + gap)
+                y = t_area_y + row * line_h
                 num_txt = f"{num:02d}. "
-                # Draw number in num_font, title in body_font
-                draw.text((x, y), num_txt, font=num_font, fill=(0,0,0))
+                draw.text((x, y), num_txt, font=num_font, fill=text_color)
                 nx = x + draw.textbbox((0,0), num_txt, font=num_font)[2]
-                draw.text((nx, y), tt, font=body_font, fill=(0,0,0))
+                draw.text((nx, y), tt, font=body_font, fill=text_color)
 
-            # Compute end Y of tracklist for layout flow
-            rows = (len(norm_tracks)+1)//2 if col_count == 2 else len(norm_tracks)
-            tracklist_end_y = start_y + rows * line_h
+            tracklist_end_y = t_area_y + rows * line_h
 
         # Liner notes under tracklist (ensure visible and non-overlapping)
         notes = (pet_info.get('liner_notes') or '').strip()
@@ -448,25 +578,13 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                 nf = _load_font(['segoeui.ttf', 'arial.ttf'], min_size)
                 return nf, int(nf.size * 1.4)
 
-            # Layout bounds for notes
-            footer_top = int(height * 0.90)
-            ny_base = tracklist_end_y + int(height * 0.03)
-            available_h = max(0, footer_top - ny_base)
+            # Liner notes removed: skip rendering and reserve no area
+            lines = []
+            available_h = 0
 
             notes_font, line_gap = fit_notes_font(int(width * 0.03), int(width * 0.018), available_h)
-            inner_w = width - 2*margin_x
-            lines = _wrap_text(draw, notes, notes_font, inner_w)
-            # Fit number of lines in available height
-            max_lines_fit = max(1, available_h // line_gap)
-            lines = lines[:max_lines_fit]
-            for i, line in enumerate(lines):
-                y = ny_base + i * line_gap
-                lw = draw.textbbox((0,0), line, font=notes_font)[2]
-                rx = width - margin_x - lw
-                draw.text((rx, y), line, font=notes_font, fill=(0,0,0))
-            # Track the end of notes to position stickers safely below
-            if lines:
-                notes_end_y = ny_base + (len(lines)) * line_gap
+            # No notes to render
+            notes_end_y = tracklist_end_y
 
         # Footer artist repetition removed to avoid duplicate artist text
 
@@ -538,13 +656,13 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     sx_right = width - margin_x
     # Place stickers below notes area to avoid overlap; keep within bottom frame
     pad2 = max(6, width//100)
-    sy = max(int(height * 0.92), locals().get('notes_end_y', int(height*0.85)) + int(height * 0.03))
+    sy = max(int(height * 0.92), locals().get('tracklist_end_y', int(height*0.85)) + int(height * 0.04))
     sy = min(sy, height - pad2 - int(sticker_font.size))
     for s in stickers[:2]:
         # Draw sticker text only (no box), right-aligned
         sw, sh = draw.textbbox((0, 0), s, font=sticker_font)[2:]
         tx = sx_right - sw
-        draw.text((tx, sy), s, font=sticker_font, fill=(0, 0, 0))
+        draw.text((tx, sy), s, font=sticker_font, fill=text_color)
         sy -= sh + 12
 
     # Save
@@ -770,9 +888,39 @@ def generate_artist_name(pet_info):
         possible_names.append(f"{name} {vocal_map[vocalness]}")
 
     if not possible_names:
-        return name # Default to just the name if no rules match
+        chosen = name  # Default to just the name if no rules match
+    else:
+        chosen = random.choice(possible_names)
 
-    return random.choice(possible_names)
+    # Limit artist name to max 3 words to prevent vertical clipping.
+    def _limit_words(text, max_words=3):
+        # Preserve ampersands by treating them as separate tokens; remove articles if exceeding limit.
+        tokens = text.replace('&', ' & ').split()
+        if len(tokens) <= max_words:
+            return text
+        # Remove filler words first
+        filler = {'THE','AND','OF','AT','IN','A','AN','&'}
+        prioritized = []
+        # Keep first token always
+        for tok in tokens:
+            up = tok.upper()
+            if len(prioritized) >= max_words:
+                break
+            # Prefer non-filler tokens unless we still have < max_words and only fillers remain.
+            if up not in filler or len(prioritized)==0:
+                prioritized.append(tok)
+        # If we still have fewer than max_words, append remaining non-filler tokens
+        if len(prioritized) < max_words:
+            for tok in tokens:
+                if tok not in prioritized and tok.upper() not in filler:
+                    prioritized.append(tok)
+                if len(prioritized) >= max_words:
+                    break
+        # Final safeguard: trim
+        return ' '.join(prioritized[:max_words])
+
+    limited = _limit_words(chosen, 3)
+    return limited
 
 def generate_album_title(pet_info):
     """Generates a creative album title based on the pet's personality."""
@@ -830,9 +978,9 @@ def index():
 @app.route('/generate', methods=['POST'])
 def generate():
     pet_info = request.form.to_dict()
-    # Force poster mode; keep style from form for photo treatment
+    # Force poster mode and single style
     pet_info['poster_mode'] = 'on'
-    pet_info['poster_style'] = pet_info.get('poster_style', 'auto')
+    pet_info['poster_style'] = 'melodrama'
     # Handle uploaded photos
     uploaded_files = request.files.getlist('photos') if 'photos' in request.files else []
     saved_path = None
