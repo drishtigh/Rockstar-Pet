@@ -12,6 +12,7 @@ Generate a poster‑style “album cover” for your pet from a short quiz and 1
 - Single photo treatment: Melodrama (deep blue + vignette) applied to the photo only
 - Palette‑driven text colors for strong visual cohesion
 - Safe Windows font fallbacks plus optional bundled fonts
+- Interactive per‑track audio: tiny play buttons directly on the poster next to each track number (30s capped playback, uniqueness enforced)
 
 ## Tech Stack
 - Python, Flask
@@ -65,6 +66,9 @@ Notes:
 - Length beyond ~35s is fine; the front-end stops playback around 30s.
 - If a mapped filename is missing, the result page shows a warning with the expected name.
 - You can safely swap any file later; naming is the contract.
+- Playback UI: Each track line on the poster has a circular play button placed to the left of its number. Clicking toggles play/pause. Only one track plays at a time.
+- Missing audio behavior: Clicking a play button for a track without a corresponding file surfaces a warning below the poster (expected `<id>.mp3` or `.wav`).
+- Customization: Adjust icon positioning or size in `templates/result.html` inside the `layoutHotspots()` function (edit the `iconSize` calculation or vertical offset). Accessibility states use `aria-pressed` on the button.
 
 ### Cleanup legacy generated audio
 If you previously generated or added the older trait/variant WAV sets (`quirk_*`, `vibe_*`, `energy_zoomies*`, `mischief_heist*`, `vocal_blep*`, `default_v*`), remove them to avoid clutter. A helper script is provided:
