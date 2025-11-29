@@ -1,4 +1,5 @@
-# Rockstar‑Pet
+![cover_1764343753_8033](https://github.com/user-attachments/assets/08ac0582-610f-4946-abd0-2c84fdf702ba)
+#Rockstar‑Pet
 
 Generate a poster‑style “album cover” for your pet from a short quiz and 1–5 photos. The app creates a 4:5 poster with a square photo, bold title, vertical artist on both sides, and a dynamic track list — all rendered server‑side with Pillow.
 
