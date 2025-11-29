@@ -9,61 +9,139 @@
 <body>
     <div class="container" style="max-width:920px;">
         {% if cover_url %}
-        <div style="margin: 16px 0; text-align:center;">
-            <a href="{{ cover_url }}" download title="Download Poster">
-                <img src="{{ cover_url }}" alt="Album poster" style="max-width:100%; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.15);"/>
-            </a>
-        </div>
-        {% endif %}
-        
-        <!-- Single audio preview removed: only show per-track previews below -->
-
-        {% if track_previews %}
-        <div style="margin-top: 18px;">
-            <h3>Track Previews</h3>
-            <ol style="padding-left: 18px;">
-                {% for tp in track_previews %}
-                <li style="margin-bottom: 12px;">
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <span style="font-weight:600; color:#333;">{{ tp.title }}</span>
-                        {% if tp.exists %}
-                        <audio class="track-audio" data-audio-id="{{ tp.audio_id }}" controls preload="none" style="flex:1; min-width:240px;">
-                            {% for src in tp.sources %}
-                            <source src="{{ src.url }}" type="{{ src.mime }}">
-                            {% endfor %}
-                            Your browser does not support the audio element.
-                        </audio>
-                        {% else %}
-                        <span style="background:#fff7e6; border:1px dashed #f0ad4e; padding:6px 8px; border-radius:6px;">Missing audio: <code>static/audio/{{ tp.audio_id }}.mp3</code> or <code>{{ tp.audio_id }}.wav</code></span>
-                        {% endif %}
-                    </div>
-                </li>
+        <div id="poster-wrapper" style="position:relative; margin:16px 0; text-align:center; display:inline-block;">
+            <img id="poster-img" src="{{ cover_url }}" alt="Album poster" style="max-width:100%; height:auto; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.15); display:block;"/>
+            {% if track_boxes and track_previews %}
+                {% for box in track_boxes %}
+                    {% set tp = track_previews[box.index] %}
+                    <button
+                        class="track-play-btn"
+                        data-track-index="{{ box.index }}"
+                        data-audio-id="{{ tp.audio_id }}"
+                        data-exists="{{ '1' if tp.exists else '0' }}"
+                        aria-label="Play {{ tp.title }}"
+                        title="Play: {{ tp.title }}"
+                        style="position:absolute; left:0; top:0; border:none; cursor:pointer;"
+                    >
+                        <span class="icon"></span>
+                    </button>
                 {% endfor %}
-            </ol>
-            <script>
-                (function(){
-                    const LIMIT = 30; // seconds
-                    const players = Array.from(document.querySelectorAll('.track-audio'));
-                    players.forEach(a => {
-                        a.addEventListener('play', () => {
-                            // Pause all other players when one starts
-                            players.forEach(other => {
-                                if (other !== a && !other.paused) {
-                                    other.pause();
-                                    other.currentTime = 0;
-                                }
-                            });
-                            if (a.currentTime > LIMIT) a.currentTime = 0;
-                        });
-                        a.addEventListener('timeupdate', () => {
-                            if (a.currentTime >= LIMIT) { a.pause(); a.currentTime = 0; }
-                        });
-                    });
-                })();
-            </script>
+            {% endif %}
         </div>
         {% endif %}
-        <div style="text-align:center; margin-top:12px;">
+
+        <audio id="track-player" preload="none" style="display:none;"></audio>
+        <div id="missing-audio-notes" style="margin-top:10px; font-size:0.85rem; color:#aa3b00; display:none;"></div>
+
+        <script>
+        (function(){
+            const ORIG_W = {{ poster_w or 1024 }};
+            const ORIG_H = {{ poster_h or (poster_w * 1.25 if poster_w else 1280) }};
+            const boxes = {{ track_boxes|tojson if track_boxes else '[]' }};
+            const previews = {{ track_previews|tojson if track_previews else '[]' }};
+            const img = document.getElementById('poster-img');
+            const LIMIT = 30; // seconds cap
+            const player = document.getElementById('track-player');
+            const notes = document.getElementById('missing-audio-notes');
+
+            function layoutHotspots(){
+                const wrap = document.getElementById('poster-wrapper');
+                if(!img.complete) return;
+                const dispW = img.clientWidth;
+                const scale = dispW / ORIG_W;
+                const dispH = ORIG_H * scale;
+                wrap.style.width = dispW + 'px';
+                wrap.style.height = dispH + 'px';
+                const btns = wrap.querySelectorAll('.track-play-btn');
+                btns.forEach((btn, i) => {
+                    const box = boxes[i];
+                    if(!box) return;
+                    const iconSize = Math.max(16, Math.min(30, box.h * scale * 0.5));
+                    // Position icon to the left of the track number area
+                    let left = (box.x * scale) - iconSize - 10; // gap
+                    if(left < 4) left = 4; // clamp
+                    // Bottom align: place icon so its bottom sits 2px above line box bottom
+                    // Baseline position (bottom of line minus icon height)
+                    let bottomAlignedTop = (box.y * scale + box.h * scale - iconSize - 2);
+                    // Move upward by one full line height (responsive) then clamp
+                    bottomAlignedTop -= (box.h * scale);
+                    const trackTop = box.y * scale;
+                    if (bottomAlignedTop < trackTop) bottomAlignedTop = trackTop; // don't exceed top
+                    btn.style.left = left + 'px';
+                    btn.style.top = bottomAlignedTop + 'px';
+                    btn.style.width = iconSize + 'px';
+                    btn.style.height = iconSize + 'px';
+                });
+            }
+
+            function clearPlaying(){
+                document.querySelectorAll('.track-play-btn.playing').forEach(b=>{
+                    b.classList.remove('playing');
+                    b.removeAttribute('aria-pressed');
+                });
+            }
+            function stopAll(){
+                player.pause();
+                player.currentTime = 0;
+                clearPlaying();
+            }
+
+            function setSources(preview){
+                // Clear existing sources
+                while(player.firstChild) player.removeChild(player.firstChild);
+                (preview.sources || []).forEach(src => {
+                    const s = document.createElement('source');
+                    s.src = src.url; s.type = src.mime; player.appendChild(s);
+                });
+                player.load();
+            }
+
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('.track-play-btn');
+                if(!btn) return;
+                const idx = parseInt(btn.dataset.trackIndex, 10);
+                const preview = previews[idx];
+                if(!preview){ return; }
+                if(btn.dataset.exists === '0'){
+                    notes.style.display = 'block';
+                    notes.textContent = 'Missing audio for: ' + preview.title + ' (expected ' + preview.audio_id + '.mp3 or .wav)';
+                    return;
+                }
+                // Toggle behavior
+                if(btn.classList.contains('playing')){
+                    stopAll();
+                } else {
+                    stopAll();
+                    setSources(preview);
+                    btn.classList.add('playing');
+                    btn.setAttribute('aria-pressed', 'true');
+                    player.play().catch(()=>{});
+                }
+            });
+
+            player.addEventListener('timeupdate', () => {
+                if(player.currentTime >= LIMIT){
+                    stopAll();
+                }
+            });
+
+            window.addEventListener('resize', layoutHotspots);
+            if(img.complete) layoutHotspots(); else img.addEventListener('load', layoutHotspots);
+        })();
+        </script>
+        <style>
+            .track-play-btn { background:rgba(0,0,0,0.45); border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0; line-height:1; box-sizing:border-box; }
+            .track-play-btn .icon { width:0; height:0; border-left:10px solid #fff; border-top:6px solid transparent; border-bottom:6px solid transparent; margin-left:2px; }
+            .track-play-btn:hover { background:rgba(0,0,0,0.65); }
+            .track-play-btn.playing { background:#ffcc4d; }
+            .track-play-btn.playing .icon { width:12px; height:12px; position:relative; background:transparent; border:none; }
+            .track-play-btn.playing .icon:before, .track-play-btn.playing .icon:after { content:''; position:absolute; top:0; bottom:0; width:4px; background:#222; }
+            .track-play-btn.playing .icon:before { left:1px; }
+            .track-play-btn.playing .icon:after { right:1px; }
+            .track-play-btn:focus-visible { outline:2px solid #ffcc4d; outline-offset:2px; }
+            @media (prefers-reduced-motion: reduce) { .track-play-btn { transition:none; } }
+        </style>
+        <div style="text-align:center; margin-top:18px;">
             <a href="{{ cover_url }}" download class="btn">Download Poster</a>
             <span style="margin:0 8px;">•</span>
             <a href="/" class="btn-secondary">Create another</a>
