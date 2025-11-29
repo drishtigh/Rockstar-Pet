@@ -873,6 +873,68 @@ def select_audio_track(pet_info):
     # Default
     return {"file": 'default.mp3', "trait": 'Default', "reason": 'Neutral'}
 
+def map_track_to_stem(title: str) -> str:
+    """Map a track title to an audio stem by keywords to match vibe.
+    Returns stem name without extension (e.g., 'energy_zoomies').
+    """
+    t = (title or '').lower()
+    # Keyword buckets
+    if any(k in t for k in ['zoom', 'sprint', 'turbo', 'midnight zoomies', 'carpet']):
+        return 'energy_zoomies'
+    if any(k in t for k in ['slow', 'lullaby', 'ballad', 'moon', 'nap', 'sunbeam']):
+        return 'energy_chill'
+    if any(k in t for k in ['royal', 'throne', 'crown', 'queen', 'prince', 'harp']):
+        return 'vibe_regal'
+    if any(k in t for k in ['kazoo', 'boop', 'sock', 'goof', 'joke', 'blep']):
+        return 'vibe_goofball'
+    if any(k in t for k in ['trail', 'odyssey', 'map', 'backyard', 'birds', 'wind', 'voyage']):
+        return 'vibe_adventurer'
+    if any(k in t for k in ['opera', 'aria', 'solo', 'howl']):
+        return 'vocal_opera'
+    if any(k in t for k in ['blep', 'snort', 'boing']):
+        return 'vocal_blep'
+    if any(k in t for k in ['heist', 'caper', 'phantom', 'sneak', 'mission']):
+        return 'mischief_heist'
+    if any(k in t for k in ['spooky', 'ghost', 'midnight', 'stare']):
+        return 'quirk_spooky'
+    if any(k in t for k in ['loaf', 'dough', 'yeast']):
+        return 'quirk_breadloaf'
+    if any(k in t for k in ['sock', 'laundry', 'closet']):
+        return 'quirk_socks'
+    return 'default'
+
+def build_track_previews(track_list):
+    """Create per-track audio preview sources from mapped stems.
+    Returns list of {title, sources:[{url,mime}], exists:bool}.
+    """
+    previews = []
+    for track in (track_list or []):
+        try:
+            title = track.split('. ', 1)[1]
+        except Exception:
+            title = track
+        stem = map_track_to_stem(title)
+        # Deterministically pick a variant based on title hash
+        h = abs(hash(title))
+        variant_idx = (h % 3) + 1  # 1..3 default variants
+        # Look for mp3/wav files for this stem
+        candidates = []
+        for e in ['.mp3', '.wav']:
+            fname = f"{stem}_v{variant_idx}{e}"
+            p = os.path.join(AUDIO_DIR, fname)
+            if os.path.exists(p):
+                candidates.append({
+                    'url': url_for('static', filename=f'audio/{fname}'),
+                    'mime': 'audio/mpeg' if e == '.mp3' else 'audio/wav',
+                })
+        previews.append({
+            'title': title,
+            'sources': candidates,
+            'exists': len(candidates) > 0,
+            'stem': f"{stem}_v{variant_idx}",
+        })
+    return previews
+
 def generate_artist_name(pet_info):
     """Generates a creative artist name based on the pet's personality."""
     name = pet_info.get('artist_name', 'The Artist')
@@ -1068,7 +1130,7 @@ def generate():
     cover_filename = generate_cover_image(pet_info, saved_path, tracks=content.get('track_list'))
     cover_url = url_for('static', filename=f'generated/{cover_filename}')
 
-    # Audio selection (30s preview mapping)
+    # Single Audio selection (30s preview mapping for poster summary)
     audio_sel = select_audio_track(pet_info)
     # Support .mp3 or .wav; prefer mp3 if present
     chosen_file = audio_sel.get('file') or ''
@@ -1085,6 +1147,9 @@ def generate():
     audio_exists = len(candidates) > 0
     audio_url = candidates[0]['url'] if candidates else None
 
+    # Per-track previews
+    track_previews = build_track_previews(content.get('track_list'))
+
     return render_template(
         'result.html',
         pet_info=pet_info,
@@ -1094,6 +1159,7 @@ def generate():
         audio_sources=candidates,
         audio_meta=audio_sel,
         audio_exists=audio_exists,
+        track_previews=track_previews,
     )
 
 if __name__ == '__main__':

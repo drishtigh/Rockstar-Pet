@@ -223,6 +223,64 @@ def bell_ping(buf, start_idx, note='E5', length_s=0.3, amp=0.22):
     mix_event(buf, start_idx, sine, length_s, freq_fn=lambda i,t: f, amp=amp, env=env_fn)
     mix_event(buf, start_idx, sine, length_s, freq_fn=lambda i,t: f*2.0, amp=amp*0.25, env=env_fn)
 
+# ----------------------
+# Additional instruments
+# ----------------------
+
+def brass_stab(buf, start_idx, note='C4', length_s=0.25, amp=0.28):
+    f = NOTE_FREQS.get(note, 261.63)
+    env_fn = lambda t: adsr_env(t, a=0.01, d=0.1, s=0.5, r=0.08, note_len=length_s-0.05)
+    # Simple saw blend to emulate brass
+    mix_event(buf, start_idx, saw, length_s, freq_fn=lambda i,t: f, amp=amp, env=env_fn)
+    mix_event(buf, start_idx, saw, length_s, freq_fn=lambda i,t: f*1.5, amp=amp*0.2, env=env_fn)
+
+def harp_gliss(buf, start_idx, notes, step_s=0.1, amp=0.18):
+    t = 0.0
+    for n in notes:
+        pluck_note(buf, start_idx + seconds_to_frames(t), n, length_s=0.2, amp=amp)
+        t += step_s
+
+def kalimba_pluck(buf, start_idx, note='C5', length_s=0.18, amp=0.2):
+    f = NOTE_FREQS.get(note, 523.25)
+    env_fn = lambda t: adsr_env(t, a=0.003, d=0.06, s=0.0, r=0.08, note_len=length_s-0.04)
+    mix_event(buf, start_idx, sine, length_s, freq_fn=lambda i,t: f, amp=amp, env=env_fn)
+    mix_event(buf, start_idx, sine, length_s, freq_fn=lambda i,t: f*3, amp=amp*0.15, env=env_fn)
+
+def guitar_strum(buf, start_idx, chord_notes, length_s=0.6, amp=0.22):
+    # quick staggered plucks
+    delay = 0.03
+    t = 0.0
+    for n in chord_notes:
+        pluck_note(buf, start_idx + seconds_to_frames(t), n, length_s=0.35, amp=amp)
+        t += delay
+
+def kazoo_lead(buf, start_idx, note='C4', length_s=0.3, amp=0.22):
+    f = NOTE_FREQS.get(note, 261.63)
+    env_fn = lambda t: adsr_env(t, a=0.01, d=0.05, s=0.6, r=0.08, note_len=length_s-0.04)
+    # richer timbre (fundamental + odd harmonics)
+    for k, a in [(1,1.0), (3,0.25), (5,0.12)]:
+        mix_event(buf, start_idx, sine, length_s, freq_fn=lambda i,t,f=f,k=k: f*k, amp=amp*a, env=env_fn)
+
+# ----------------------
+# Arrangement helpers
+# ----------------------
+
+def schedule_intro(buf, bpm, motif_fn):
+    # 0–8s intro
+    motif_fn(seconds_to_frames(0))
+    motif_fn(seconds_to_frames(4))
+
+def schedule_middle(buf, bpm, groove_fn):
+    # 8–22s middle groove
+    groove_fn(seconds_to_frames(8))
+    groove_fn(seconds_to_frames(14))
+    groove_fn(seconds_to_frames(20))
+
+def schedule_outro(buf, bpm, resolve_fn):
+    # 22–30s outro
+    resolve_fn(seconds_to_frames(22))
+    resolve_fn(seconds_to_frames(26))
+
 
 # ----------------------
 # Track recipes (~30s)
@@ -278,131 +336,213 @@ def arp_melody(buf, bpm, notes):
 def build_quirk_breadloaf():
     buf = make_buffer()
     bpm = 60
-    # soft pad + slow plucks + squelch (low noise bursts)
-    for t in range(0, 30, 4):
-        pad_chord(buf, seconds_to_frames(t), ['C4','E4','G4'], length_s=3.0, amp=0.15)
-    for t in [0,1,2,3, 6,7,8,9, 12,13,14,15, 18,19,20,21, 24,25,26,27]:
-        pluck_note(buf, seconds_to_frames(t*0.75), 'C4', length_s=0.35, amp=0.18)
-    for t in [5, 10, 20]:
-        noise_rustle(buf, seconds_to_frames(t), length_s=0.4, amp=0.12)
+    def intro(start):
+        pad_chord(buf, start, ['C4','E4','G4'], length_s=4.0, amp=0.14)
+        kalimba_pluck(buf, start + seconds_to_frames(0.6), 'E5', 0.2, 0.18)
+    def middle(start):
+        for t in [0, 1.2, 2.4, 3.6, 5.0]:
+            pluck_note(buf, start + seconds_to_frames(t), 'C4', length_s=0.35, amp=0.18)
+        pad_chord(buf, start + seconds_to_frames(2.0), ['C4','E4','A4'], length_s=3.5, amp=0.12)
+        noise_rustle(buf, start + seconds_to_frames(4.2), length_s=0.4, amp=0.1)
+    def outro(start):
+        pad_chord(buf, start, ['C4','E4','G4'], length_s=3.5, amp=0.12)
+        bell_ping(buf, start + seconds_to_frames(2.2), 'E5', 0.3, 0.2)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_quirk_spooky():
     buf = make_buffer()
     bpm = 80
-    # minor pads + creak (low glide)
-    for t in range(0, 30, 3):
-        pad_chord(buf, seconds_to_frames(t), ['A3','C4','E4'], length_s=2.5, amp=0.16)
-    for t in [4, 11, 18, 25]:
-        glide_sine(buf, seconds_to_frames(t), 90, 50, length_s=1.2, amp=0.2)
+    def intro(start):
+        pad_chord(buf, start, ['A3','C4','E4'], length_s=3.0, amp=0.16)
+        glide_sine(buf, start + seconds_to_frames(1.2), 100, 60, 1.0, 0.18)
+    def middle(start):
+        pad_chord(buf, start, ['A3','D4','F4'], length_s=3.0, amp=0.14)
+        glide_sine(buf, start + seconds_to_frames(2.0), 80, 50, 1.2, 0.2)
+    def outro(start):
+        pad_chord(buf, start, ['A3','C4','E4'], length_s=2.8, amp=0.14)
+        bell_ping(buf, start + seconds_to_frames(1.8), 'A4', 0.35, 0.18)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_quirk_socks():
     buf = make_buffer()
     bpm = 110
-    notes = ['C4','E4','G4','B3']
-    arp_melody(buf, bpm, notes)
-    for t in [2, 6.5, 12, 17.5, 22, 27.5]:
-        noise_rustle(buf, seconds_to_frames(t), length_s=0.25, amp=0.18)
+    def intro(start):
+        harp_gliss(buf, start, ['C4','D4','E4','G4','A4','C5'], step_s=0.09, amp=0.16)
+    def middle(start):
+        arp_melody(buf, bpm, ['C4','E4','G4','B3'])
+        noise_rustle(buf, start + seconds_to_frames(2.2), length_s=0.25, amp=0.16)
+        noise_rustle(buf, start + seconds_to_frames(6.6), length_s=0.25, amp=0.16)
+    def outro(start):
+        harp_gliss(buf, start, ['G4','E4','C4'], step_s=0.12, amp=0.16)
+        bell_ping(buf, start + seconds_to_frames(2.0), 'G5', 0.25, 0.2)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_mischief_heist():
     buf = make_buffer()
     bpm = 120
-    pattern_kick_snare_hh(buf, bpm)
-    walking_bass(buf, bpm, root='C3')
-    # cha-ching bells
-    for t in [5, 13, 21, 28]:
-        bell_ping(buf, seconds_to_frames(t), 'E5', 0.25, 0.22)
-        bell_ping(buf, seconds_to_frames(t+0.15), 'G5', 0.25, 0.18)
+    def intro(start):
+        walking_bass(buf, bpm, root='C3')
+        hihat(buf, start + seconds_to_frames(1.0))
+    def middle(start):
+        pattern_kick_snare_hh(buf, bpm)
+        brass_stab(buf, start + seconds_to_frames(2.0), 'C4', 0.25, 0.26)
+        brass_stab(buf, start + seconds_to_frames(4.5), 'E4', 0.25, 0.24)
+    def outro(start):
+        for t in [1.0, 3.0, 5.5]:
+            bell_ping(buf, start + seconds_to_frames(t), 'E5', 0.25, 0.22)
+            bell_ping(buf, start + seconds_to_frames(t+0.15), 'G5', 0.25, 0.18)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_vocal_opera():
     buf = make_buffer()
     bpm = 90
-    # dramatic swells
-    for t in range(0, 30, 4):
-        pad_chord(buf, seconds_to_frames(t), ['C4','G4','E4'], length_s=3.2, amp=0.2)
-    for t in [2, 10, 18, 26]:
-        bell_ping(buf, seconds_to_frames(t), 'A4', 0.4, 0.2)
+    def intro(start):
+        pad_chord(buf, start, ['C4','G4','E4'], 3.2, 0.2)
+        bell_ping(buf, start + seconds_to_frames(1.8), 'A4', 0.35, 0.2)
+    def middle(start):
+        pad_chord(buf, start, ['D4','A4','F4'], 3.2, 0.18)
+        bell_ping(buf, start + seconds_to_frames(2.2), 'C5', 0.35, 0.2)
+    def outro(start):
+        pad_chord(buf, start, ['C4','G4','E4'], 3.0, 0.18)
+        bell_ping(buf, start + seconds_to_frames(2.0), 'A4', 0.35, 0.2)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_vocal_blep():
     buf = make_buffer()
-    # boing + snort
-    for t in [1, 5, 9, 13, 17, 21, 25, 29]:
-        glide_sine(buf, seconds_to_frames(t), 600, 200, length_s=0.5, amp=0.22)
-        noise_rustle(buf, seconds_to_frames(t+0.2), length_s=0.15, amp=0.18)
+    def intro(start):
+        glide_sine(buf, start + seconds_to_frames(0.8), 700, 250, 0.5, 0.22)
+        noise_rustle(buf, start + seconds_to_frames(1.1), 0.18, 0.16)
+    def middle(start):
+        for t in [0.5, 3.0, 5.5]:
+            glide_sine(buf, start + seconds_to_frames(t), 600, 200, 0.5, 0.22)
+            noise_rustle(buf, start + seconds_to_frames(t+0.25), 0.15, 0.16)
+    def outro(start):
+        glide_sine(buf, start + seconds_to_frames(1.2), 500, 200, 0.6, 0.2)
+    schedule_intro(buf, 100, intro)
+    schedule_middle(buf, 100, middle)
+    schedule_outro(buf, 100, outro)
     return buf
 
 
 def build_energy_zoomies():
     buf = make_buffer()
     bpm = 180
-    pattern_kick_snare_hh(buf, bpm)
-    arp_melody(buf, bpm, ['C4','E4','G4','B4','C5','G4'])
+    def intro(start):
+        arp_melody(buf, bpm, ['C4','E4','G4'])
+    def middle(start):
+        pattern_kick_snare_hh(buf, bpm)
+        arp_melody(buf, bpm, ['C4','E4','G4','B4','C5','G4'])
+    def outro(start):
+        brass_stab(buf, start + seconds_to_frames(1.0), 'C4', 0.25, 0.26)
+        brass_stab(buf, start + seconds_to_frames(2.5), 'G4', 0.25, 0.22)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_energy_chill():
     buf = make_buffer()
     bpm = 60
-    # ambient pads + light noise
-    for t in range(0, 30, 5):
-        pad_chord(buf, seconds_to_frames(t), ['C4','E4','A4'], length_s=4.5, amp=0.14)
-    for t in range(0, 30, 6):
-        wind_noise(buf, seconds_to_frames(t+1), length_s=2.0, amp=0.06)
+    def intro(start):
+        pad_chord(buf, start, ['C4','E4','A4'], 4.5, 0.14)
+        wind_noise(buf, start + seconds_to_frames(1), 2.0, 0.06)
+    def middle(start):
+        pad_chord(buf, start, ['D4','F4','A4'], 4.0, 0.12)
+        wind_noise(buf, start + seconds_to_frames(2), 2.0, 0.06)
+    def outro(start):
+        pad_chord(buf, start, ['C4','E4','G4'], 3.5, 0.12)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_vibe_regal():
     buf = make_buffer()
     bpm = 100
-    # simple harp-like gliss: fast upward plucks periodically
-    for base_t in [0, 6, 12, 18, 24]:
-        seq = ['C4','D4','E4','G4','A4','C5','E5','G5']
-        t = base_t
-        for n in seq:
-            pluck_note(buf, seconds_to_frames(t), n, length_s=0.18, amp=0.2)
-            t += 0.12
-    for t in range(0, 30, 4):
-        pad_chord(buf, seconds_to_frames(t), ['C4','E4','G4'], length_s=3.0, amp=0.12)
+    def intro(start):
+        harp_gliss(buf, start, ['C4','D4','E4','G4','A4','C5','E5','G5'], 0.1, 0.18)
+        pad_chord(buf, start + seconds_to_frames(1.2), ['C4','E4','G4'], 2.8, 0.12)
+    def middle(start):
+        pad_chord(buf, start, ['D4','F4','A4'], 3.0, 0.12)
+        harp_gliss(buf, start + seconds_to_frames(2.2), ['E4','G4','B4','D5'], 0.12, 0.16)
+    def outro(start):
+        pad_chord(buf, start, ['C4','E4','G4'], 3.0, 0.12)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_vibe_goofball():
     buf = make_buffer()
-    # kazoo-ish (square) melody + slide whistles
-    for t in [0, 0.5, 1.0, 1.5, 3.0, 3.5, 4.0, 4.5, 6.0, 6.5, 7.0, 7.5]:
-        # square lead: emulate via rich sine partials
-        pluck_note(buf, seconds_to_frames(t), random.choice(['C4','D4','E4','G4']), length_s=0.25, amp=0.22)
-    for t in [5, 10, 15, 20, 25]:
-        glide_sine(buf, seconds_to_frames(t), 900, 1300, length_s=0.4, amp=0.2)
+    def intro(start):
+        for t in [0, 0.6, 1.2]:
+            kazoo_lead(buf, start + seconds_to_frames(t), random.choice(['C4','D4','E4','G4']), 0.28, 0.22)
+    def middle(start):
+        for t in [0.2, 1.2, 2.2, 3.2, 4.2]:
+            kazoo_lead(buf, start + seconds_to_frames(t), random.choice(['C4','D4','E4','G4']), 0.28, 0.22)
+        glide_sine(buf, start + seconds_to_frames(2.8), 900, 1300, 0.4, 0.2)
+    def outro(start):
+        glide_sine(buf, start + seconds_to_frames(1.0), 700, 1200, 0.4, 0.2)
+    schedule_intro(buf, 110, intro)
+    schedule_middle(buf, 110, middle)
+    schedule_outro(buf, 110, outro)
     return buf
 
 
 def build_vibe_adventurer():
     buf = make_buffer()
     bpm = 100
-    # guitar-like arps + birds + wind
-    arp_melody(buf, bpm, ['C4','E4','G4','E4'])
-    for t in [2, 8, 14, 20, 26]:
-        birds_chirp(buf, seconds_to_frames(t))
-    for t in range(0, 30, 7):
-        wind_noise(buf, seconds_to_frames(t+2), length_s=2.0, amp=0.07)
+    def intro(start):
+        guitar_strum(buf, start, ['C4','E4','G4'], 0.6, 0.22)
+        birds_chirp(buf, start + seconds_to_frames(1.5))
+    def middle(start):
+        arp_melody(buf, bpm, ['C4','E4','G4','E4'])
+        wind_noise(buf, start + seconds_to_frames(2.0), 2.0, 0.07)
+    def outro(start):
+        guitar_strum(buf, start + seconds_to_frames(1.0), ['G4','B4','D5'], 0.6, 0.22)
+        wind_noise(buf, start + seconds_to_frames(2.0), 1.8, 0.06)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
 def build_default():
     buf = make_buffer()
     bpm = 100
-    pattern_kick_snare_hh(buf, bpm)
-    arp_melody(buf, bpm, ['C4','E4','G4','E4'])
+    def intro(start):
+        pad_chord(buf, start, ['C4','E4','G4'], 2.8, 0.12)
+    def middle(start):
+        pattern_kick_snare_hh(buf, bpm)
+        arp_melody(buf, bpm, ['C4','E4','G4','E4'])
+    def outro(start):
+        bell_ping(buf, start + seconds_to_frames(1.5), 'E5', 0.3, 0.2)
+    schedule_intro(buf, bpm, intro)
+    schedule_middle(buf, bpm, middle)
+    schedule_outro(buf, bpm, outro)
     return buf
 
 
@@ -428,6 +568,7 @@ def main():
     parser.add_argument('--only', type=str, default='', help='Comma-separated list of stems to generate (e.g., energy_zoomies,vibe_regal)')
     parser.add_argument('--samplerate', type=int, default=SAMPLE_RATE, help='Sample rate (default 44100)')
     parser.add_argument('--duration', type=float, default=DURATION_S, help='Duration seconds (default 30)')
+    parser.add_argument('--variants', type=int, default=3, help='Number of variants per stem (default 3)')
     args = parser.parse_args()
 
     SAMPLE_RATE = max(8000, int(args.samplerate))
@@ -442,11 +583,14 @@ def main():
         if stem not in RECIPES:
             print(f"Skipping unknown stem: {stem}")
             continue
-        print(f"Generating {stem}.wav ...")
-        buf = RECIPES[stem]()
-        out = os.path.join(AUDIO_DIR, f"{stem}.wav")
-        write_wav(out, buf, SAMPLE_RATE)
-        made.append(out)
+        for v in range(1, max(1, args.variants)+1):
+            print(f"Generating {stem}_v{v}.wav ...")
+            # seed per variant for variety
+            random.seed(f"{stem}-{v}")
+            buf = RECIPES[stem]()
+            out = os.path.join(AUDIO_DIR, f"{stem}_v{v}.wav")
+            write_wav(out, buf, SAMPLE_RATE)
+            made.append(out)
     print("\nDone. Files:")
     for p in made:
         print("  ", p)
