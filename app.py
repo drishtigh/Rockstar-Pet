@@ -144,7 +144,7 @@ def _draw_text_with_spacing(draw, position, text, font, fill, spacing=0, stroke_
         w, h = draw.textbbox((0, 0), ch, font=font)[2:]
         x += w + spacing
 
-def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERATED_DIR, size=1024):
+def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERATED_DIR, size=1024, track_boxes=None):
     # Load image or fallback solid background
     if photo_path and os.path.exists(photo_path):
         img = Image.open(photo_path).convert('RGB')
@@ -545,6 +545,16 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
                 draw.text((x, y), num_txt, font=num_font, fill=text_color)
                 nx = x + draw.textbbox((0,0), num_txt, font=num_font)[2]
                 draw.text((nx, y), tt, font=body_font, fill=text_color)
+                # Collect clickable region for this track if requested
+                if track_boxes is not None:
+                    # Region spans the whole line area for easier clicking
+                    track_boxes.append({
+                        'index': num - 1,
+                        'x': x,
+                        'y': y,
+                        'w': col_w,
+                        'h': line_h
+                    })
 
             tracklist_end_y = t_area_y + rows * line_h
 
@@ -680,7 +690,7 @@ def generate_cover_image(pet_info, photo_path=None, tracks=None, out_dir=GENERAT
     filename = f"cover_{int(time.time())}_{random.randint(1000,9999)}.jpg"
     out_path = os.path.join(out_dir, filename)
     poster.save(out_path, quality=90)
-    return filename
+    return filename, width, height
 
 def generate_album_content(pet_info):
     """Generates the album content based on the pet's info using a detailed mapping plan."""
@@ -874,64 +884,97 @@ def select_audio_track(pet_info):
     return {"file": 'default.mp3', "trait": 'Default', "reason": 'Neutral'}
 
 def map_track_to_stem(title: str) -> str:
-    """Map a track title to an audio stem by keywords to match vibe.
-    Returns stem name without extension (e.g., 'energy_zoomies').
-    """
+    """Return ordered list of candidate audio IDs (subset of 12 pool) for a title.
+    First element is strongest match; list always ends with 'neutral_default'."""
     t = (title or '').lower()
-    # Keyword buckets
+    candidates = []
+    def add(id):
+        if id not in candidates:
+            candidates.append(id)
+    # Fast energy
     if any(k in t for k in ['zoom', 'sprint', 'turbo', 'midnight zoomies', 'carpet']):
-        return 'energy_zoomies'
-    if any(k in t for k in ['slow', 'lullaby', 'ballad', 'moon', 'nap', 'sunbeam']):
-        return 'energy_chill'
+        add('energy_fast')
+    # Chill energy
+    if any(k in t for k in ['slow', 'lullaby', 'ballad', 'moon', 'nap', 'sunbeam', 'loaf', 'blanket']):
+        add('energy_chill')
+    # Regal
     if any(k in t for k in ['royal', 'throne', 'crown', 'queen', 'prince', 'harp']):
-        return 'vibe_regal'
+        add('regal_grand')
+    # Goofball / comedic
     if any(k in t for k in ['kazoo', 'boop', 'sock', 'goof', 'joke', 'blep']):
-        return 'vibe_goofball'
+        add('goofball_quirky')
+    # Adventurer
     if any(k in t for k in ['trail', 'odyssey', 'map', 'backyard', 'birds', 'wind', 'voyage']):
-        return 'vibe_adventurer'
-    if any(k in t for k in ['opera', 'aria', 'solo', 'howl']):
-        return 'vocal_opera'
-    if any(k in t for k in ['blep', 'snort', 'boing']):
-        return 'vocal_blep'
+        add('adventurer_outdoor')
+    # Mischief / heist
     if any(k in t for k in ['heist', 'caper', 'phantom', 'sneak', 'mission']):
-        return 'mischief_heist'
+        add('mischief_sneaky')
+    # Dramatic vocal
+    if any(k in t for k in ['opera', 'aria', 'solo', 'howl']):
+        add('vocal_opera')
+    # Comedic vocal fx
+    if any(k in t for k in ['blep', 'snort', 'boing']):
+        add('vocal_comic_blep')
+    # Cozy loaf
+    if any(k in t for k in ['loaf', 'velcro', 'snuggle', 'warm']):
+        add('cozy_loaf')
+    # Spooky stare
     if any(k in t for k in ['spooky', 'ghost', 'midnight', 'stare']):
-        return 'quirk_spooky'
-    if any(k in t for k in ['loaf', 'dough', 'yeast']):
-        return 'quirk_breadloaf'
+        add('spooky_stare')
+    # Socks / stealth playful
     if any(k in t for k in ['sock', 'laundry', 'closet']):
-        return 'quirk_socks'
-    return 'default'
+        add('playful_socks_pizz')
+    # Always include neutral fallback last
+    add('neutral_default')
+    return candidates
 
 def build_track_previews(track_list):
-    """Create per-track audio preview sources from mapped stems.
-    Returns list of {title, sources:[{url,mime}], exists:bool}.
-    """
+    """Assign unique audio IDs (from 12-file pool) per poster, prioritizing uniqueness.
+    Returns list of {title,audio_id,sources,exists}."""
+    pool_ids = [
+        'energy_fast','energy_chill','regal_grand','goofball_quirky','adventurer_outdoor',
+        'mischief_sneaky','vocal_opera','vocal_comic_blep','cozy_loaf','spooky_stare',
+        'playful_socks_pizz','neutral_default'
+    ]
+    used = set()
     previews = []
     for track in (track_list or []):
         try:
             title = track.split('. ', 1)[1]
         except Exception:
             title = track
-        stem = map_track_to_stem(title)
-        # Deterministically pick a variant based on title hash
-        h = abs(hash(title))
-        variant_idx = (h % 3) + 1  # 1..3 default variants
-        # Look for mp3/wav files for this stem
-        candidates = []
+        candidates = map_track_to_stem(title)
+        chosen = None
+        # pick first unused candidate
+        for cid in candidates:
+            if cid in pool_ids and cid not in used:
+                chosen = cid
+                break
+        # fallback: pick any unused pool id
+        if not chosen:
+            for pid in pool_ids:
+                if pid not in used:
+                    chosen = pid
+                    break
+        # if still none (pool exhausted), reuse neutral
+        if not chosen:
+            chosen = 'neutral_default'
+        used.add(chosen)
+        # resolve file (.mp3 preferred then .wav)
+        sources = []
         for e in ['.mp3', '.wav']:
-            fname = f"{stem}_v{variant_idx}{e}"
-            p = os.path.join(AUDIO_DIR, fname)
-            if os.path.exists(p):
-                candidates.append({
+            fname = f"{chosen}{e}"
+            path = os.path.join(AUDIO_DIR, fname)
+            if os.path.exists(path):
+                sources.append({
                     'url': url_for('static', filename=f'audio/{fname}'),
-                    'mime': 'audio/mpeg' if e == '.mp3' else 'audio/wav',
+                    'mime': 'audio/mpeg' if e == '.mp3' else 'audio/wav'
                 })
         previews.append({
             'title': title,
-            'sources': candidates,
-            'exists': len(candidates) > 0,
-            'stem': f"{stem}_v{variant_idx}",
+            'audio_id': chosen,
+            'sources': sources,
+            'exists': len(sources) > 0
         })
     return previews
 
@@ -1127,7 +1170,8 @@ def generate():
     content = generate_album_content(pet_info)
 
     # Generate cover image (uses first uploaded or fallback)
-    cover_filename = generate_cover_image(pet_info, saved_path, tracks=content.get('track_list'))
+    track_boxes = []
+    cover_filename, poster_w, poster_h = generate_cover_image(pet_info, saved_path, tracks=content.get('track_list'), track_boxes=track_boxes)
     cover_url = url_for('static', filename=f'generated/{cover_filename}')
 
     # Single Audio selection (30s preview mapping for poster summary)
@@ -1160,6 +1204,9 @@ def generate():
         audio_meta=audio_sel,
         audio_exists=audio_exists,
         track_previews=track_previews,
+        track_boxes=track_boxes,
+        poster_w=poster_w,
+        poster_h=poster_h,
     )
 
 if __name__ == '__main__':

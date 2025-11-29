@@ -41,41 +41,52 @@ python -m flask run
 ```
 Open http://127.0.0.1:5000 in your browser.
 
-## 30s Audio Preview (Optional)
-Add short (~30s) MP3 previews that match your pet's quiz answers. Place files in `static/audio/` with these names:
+## Audio Previews (12-File Pool, Optional)
+The app supports per-track short (~25–35s) audio previews. It uses a fixed curated pool of 12 royalty‑free files and enforces uniqueness: no two tracks in a single poster reuse the same audio.
 
-- `quirk_breadloaf.mp3` — Quirk: Bread loaf
-- `quirk_spooky.mp3` — Quirk: Spooky stare
-- `quirk_socks.mp3` — Quirk: Stealing socks
-- `mischief_heist.mp3` — Mischief: Master thief
-- `vocal_opera.mp3` — Vocalness: Opera
-- `vocal_blep.mp3` — Favorite sound: Snorts/bleps
-- `energy_zoomies.mp3` — Energy: Zoomies Every Hour
-- `energy_chill.mp3` — Energy: Chill
-- `vibe_regal.mp3` — Vibe: Regal
-- `vibe_goofball.mp3` — Vibe: Goofball
-- `vibe_adventurer.mp3` — Vibe: Adventurer
-- `default.mp3` — Fallback when no trait matches
+Place these files (MP3 preferred, WAV accepted) in `static/audio/`:
 
-Priority mapping (first match wins):
-1. Quirk (signature move or weirdest habit)
-2. Mischief (e.g., Master thief)
-3. Vocalness (Opera) or Favorite sound (Snorts/bleps)
-4. Energy (Zoomies/Chill) or Vibe (Regal/Goofball/Adventurer)
-5. Default
+- `energy_fast.mp3` — High/zoomie energy
+- `energy_chill.mp3` — Relaxed / mellow
+- `regal_grand.mp3` — Majestic / stately / regal
+- `goofball_quirky.mp3` — Silly / comedic / offbeat
+- `adventurer_outdoor.mp3` — Explorer / outdoorsy / quest
+- `mischief_sneaky.mp3` — Sneaky / playful trouble
+- `vocal_opera.mp3` — Big dramatic vocal vibe
+- `vocal_comic_blep.mp3` — Light, humorous blep/snort
+- `cozy_loaf.mp3` — Warm, soft, loafing
+- `spooky_stare.mp3` — Eerie / mysterious stare
+- `playful_socks_pizz.mp3` — Plucky, toy-like, sock antics
+- `neutral_default.mp3` — Neutral fallback (used only if pool exhausted or no match)
+
+Selection logic (simplified): each generated track title produces an ordered candidate list of fitting IDs; the app picks the first still-unused audio. If all candidates are already used, it assigns an unused pool file; if the pool is fully consumed (12+ tracks), remaining tracks fall back to `neutral_default`. Result: maximum distinctness > perfect semantic matching.
 
 Notes:
-- Files longer than 30s are auto-stopped at ~30s in the player.
-- If a selected file is missing, the result page shows which filename to add.
+- Length beyond ~35s is fine; the front-end stops playback around 30s.
+- If a mapped filename is missing, the result page shows a warning with the expected name.
+- You can safely swap any file later; naming is the contract.
 
-### Generate placeholder audio (no external tools)
-You can generate simple 30s WAV placeholders via a pure-Python script:
+### Cleanup legacy generated audio
+If you previously generated or added the older trait/variant WAV sets (`quirk_*`, `vibe_*`, `energy_zoomies*`, `mischief_heist*`, `vocal_blep*`, `default_v*`), remove them to avoid clutter. A helper script is provided:
+
+```powershell
+python .\tools\cleanup_audio.py
+```
+
+It will:
+- Rename malformed double-extension files (e.g. `energy_chill.mp3.mp3` -> `energy_chill.mp3`).
+- Rename `goofball_quirky.mp.mp3` -> `goofball_quirky.mp3`.
+- Delete legacy WAV variants and unused stems.
+- Report any curated files still missing.
+
+### Legacy procedural generator (optional)
+If you want quick placeholder tones instead of curated music, a legacy script can synthesize simple WAVs:
 
 ```powershell
 python .\tools\generate_audio.py
 ```
 
-This creates `.wav` files in `static/audio/`. The app prefers `.mp3` if present, but will use `.wav` if that’s what you have. To convert WAV → MP3 (optional), use ffmpeg:
+Generated `.wav` files go to `static/audio/`. The app prefers `.mp3` when both exist. Convert with ffmpeg if desired:
 
 ```powershell
 ffmpeg -y -i input.wav -codec:a libmp3lame -qscale:a 4 output.mp3

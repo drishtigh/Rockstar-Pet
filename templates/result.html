@@ -27,14 +27,14 @@
                     <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <span style="font-weight:600; color:#333;">{{ tp.title }}</span>
                         {% if tp.exists %}
-                        <audio class="track-audio" controls preload="none" style="flex:1; min-width:240px;">
+                        <audio class="track-audio" data-audio-id="{{ tp.audio_id }}" controls preload="none" style="flex:1; min-width:240px;">
                             {% for src in tp.sources %}
                             <source src="{{ src.url }}" type="{{ src.mime }}">
                             {% endfor %}
                             Your browser does not support the audio element.
                         </audio>
                         {% else %}
-                        <span style="background:#fff7e6; border:1px dashed #f0ad4e; padding:6px 8px; border-radius:6px;">Missing audio: <code>static/audio/{{ tp.stem }}.mp3</code> or <code>.wav</code></span>
+                        <span style="background:#fff7e6; border:1px dashed #f0ad4e; padding:6px 8px; border-radius:6px;">Missing audio: <code>static/audio/{{ tp.audio_id }}.mp3</code> or <code>{{ tp.audio_id }}.wav</code></span>
                         {% endif %}
                     </div>
                 </li>
