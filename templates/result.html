@@ -15,6 +15,42 @@
             </a>
         </div>
         {% endif %}
+        
+        <div style="margin-top: 14px;">
+            <h3>Audio Preview</h3>
+            {% if audio_exists and audio_url %}
+                <p style="margin:6px 0 10px; color:#555;">Picked by <strong>{{ audio_meta.trait }}</strong> → <em>{{ audio_meta.reason }}</em> (30s preview)</p>
+                <audio id="preview-audio" controls preload="none" style="width:100%;">
+                    {% for src in audio_sources %}
+                    <source src="{{ src.url }}" type="{{ src.mime }}">
+                    {% endfor %}
+                    Your browser does not support the audio element.
+                </audio>
+                <small style="display:block; color:#666; margin-top:6px;">Playback stops automatically at ~30s.</small>
+                <script>
+                    (function(){
+                        const audio = document.getElementById('preview-audio');
+                        if (!audio) return;
+                        const clipEnd = 30; // seconds
+                        audio.addEventListener('play', () => {
+                            if (audio.currentTime > clipEnd) audio.currentTime = 0;
+                        });
+                        audio.addEventListener('timeupdate', () => {
+                            if (audio.currentTime >= clipEnd) {
+                                audio.pause();
+                                audio.currentTime = 0;
+                            }
+                        });
+                    })();
+                </script>
+            {% else %}
+                <p style="margin:6px 0 10px; color:#555;">Picked by <strong>{{ audio_meta.trait }}</strong> → <em>{{ audio_meta.reason }}</em></p>
+                <div style="background:#fff7e6; border:1px dashed #f0ad4e; padding:10px 12px; border-radius:8px;">
+                    <strong>Audio file not found:</strong> <code>static/audio/{{ audio_meta.file }}</code><br>
+                    Drop a 30s MP3 there to enable the preview.
+                </div>
+            {% endif %}
+        </div>
         <div style="text-align:center; margin-top:12px;">
             <a href="{{ cover_url }}" download class="btn">Download Poster</a>
             <span style="margin:0 8px;">•</span>

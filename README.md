@@ -40,6 +40,46 @@ python -m flask run
 ```
 Open http://127.0.0.1:5000 in your browser.
 
+## 30s Audio Preview (Optional)
+Add short (~30s) MP3 previews that match your pet's quiz answers. Place files in `static/audio/` with these names:
+
+- `quirk_breadloaf.mp3` — Quirk: Bread loaf
+- `quirk_spooky.mp3` — Quirk: Spooky stare
+- `quirk_socks.mp3` — Quirk: Stealing socks
+- `mischief_heist.mp3` — Mischief: Master thief
+- `vocal_opera.mp3` — Vocalness: Opera
+- `vocal_blep.mp3` — Favorite sound: Snorts/bleps
+- `energy_zoomies.mp3` — Energy: Zoomies Every Hour
+- `energy_chill.mp3` — Energy: Chill
+- `vibe_regal.mp3` — Vibe: Regal
+- `vibe_goofball.mp3` — Vibe: Goofball
+- `vibe_adventurer.mp3` — Vibe: Adventurer
+- `default.mp3` — Fallback when no trait matches
+
+Priority mapping (first match wins):
+1. Quirk (signature move or weirdest habit)
+2. Mischief (e.g., Master thief)
+3. Vocalness (Opera) or Favorite sound (Snorts/bleps)
+4. Energy (Zoomies/Chill) or Vibe (Regal/Goofball/Adventurer)
+5. Default
+
+Notes:
+- Files longer than 30s are auto-stopped at ~30s in the player.
+- If a selected file is missing, the result page shows which filename to add.
+
+### Generate placeholder audio (no external tools)
+You can generate simple 30s WAV placeholders via a pure-Python script:
+
+```powershell
+python .\tools\generate_audio.py
+```
+
+This creates `.wav` files in `static/audio/`. The app prefers `.mp3` if present, but will use `.wav` if that’s what you have. To convert WAV → MP3 (optional), use ffmpeg:
+
+```powershell
+ffmpeg -y -i input.wav -codec:a libmp3lame -qscale:a 4 output.mp3
+```
+
 ## Usage
 - Enter your pet’s name.
 - Answer the quick quiz (energy, vibe, quirks, etc.).

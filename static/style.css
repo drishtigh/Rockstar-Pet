@@ -81,6 +81,12 @@ button:hover {
     background-color: #493b8a;
 }
 
+button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(15%);
+}
+
 .album-details {
     display: flex;
     justify-content: space-between;

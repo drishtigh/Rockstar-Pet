@@ -14,9 +14,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 UPLOAD_DIR = os.path.join(STATIC_DIR, 'uploads')
 GENERATED_DIR = os.path.join(STATIC_DIR, 'generated')
+AUDIO_DIR = os.path.join(STATIC_DIR, 'audio')
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(GENERATED_DIR, exist_ok=True)
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 
@@ -819,6 +821,58 @@ def generate_album_content(pet_info):
 
     return {"track_list": final_numbered_tracks, "easter_eggs": easter_eggs}
 
+def select_audio_track(pet_info):
+    """Select a single 30s preview track based on priority mapping.
+    Priority: Quirk > Mischief > Vocalness > Energy/Vibe > Default.
+    Returns dict: {file, trait, reason}
+    """
+    # Normalize inputs
+    sig = (pet_info.get('signature_move') or '').strip()
+    habit = (pet_info.get('weirdest_habit') or '').strip()
+    sneak = (pet_info.get('sneakiness') or '').strip()
+    vocal = (pet_info.get('vocalness_description') or '').strip()
+    fav_sound = (pet_info.get('favorite_sound') or '').strip()
+    energy = (pet_info.get('energy') or '').strip()
+    vibe = (pet_info.get('vibe') or '').strip()
+
+    # Quirks (signature move + weirdest habit)
+    quirk_map = {
+        'Bread loaf': ('quirk_breadloaf.mp3', 'Quirk', 'Bread loaf'),
+        'Spooky stare': ('quirk_spooky.mp3', 'Quirk', 'Spooky stare'),
+        'Stealing socks': ('quirk_socks.mp3', 'Quirk', 'Stealing socks'),
+    }
+    for key in (sig, habit):
+        if key in quirk_map:
+            f, t, r = quirk_map[key]
+            return {"file": f, "trait": t, "reason": r}
+
+    # Mischief / Bravery
+    if sneak == 'Master thief':
+        return {"file": 'mischief_heist.mp3', "trait": 'Mischief', "reason": 'Master thief'}
+
+    # Vocalness
+    if vocal == 'Opera':
+        return {"file": 'vocal_opera.mp3', "trait": 'Vocalness', "reason": 'Opera'}
+    if fav_sound == 'Snorts/bleps':
+        return {"file": 'vocal_blep.mp3', "trait": 'Vocalness', "reason": 'Snorts/bleps'}
+
+    # Energy
+    if energy == 'Zoomies Every Hour':
+        return {"file": 'energy_zoomies.mp3', "trait": 'Energy', "reason": 'Zoomies Every Hour'}
+    if energy == 'Chill':
+        return {"file": 'energy_chill.mp3', "trait": 'Energy', "reason": 'Chill'}
+
+    # Vibe
+    if vibe == 'Regal':
+        return {"file": 'vibe_regal.mp3', "trait": 'Vibe', "reason": 'Regal'}
+    if vibe == 'Goofball':
+        return {"file": 'vibe_goofball.mp3', "trait": 'Vibe', "reason": 'Goofball'}
+    if vibe == 'Adventurer':
+        return {"file": 'vibe_adventurer.mp3', "trait": 'Vibe', "reason": 'Adventurer'}
+
+    # Default
+    return {"file": 'default.mp3', "trait": 'Default', "reason": 'Neutral'}
+
 def generate_artist_name(pet_info):
     """Generates a creative artist name based on the pet's personality."""
     name = pet_info.get('artist_name', 'The Artist')
@@ -1013,8 +1067,34 @@ def generate():
     # Generate cover image (uses first uploaded or fallback)
     cover_filename = generate_cover_image(pet_info, saved_path, tracks=content.get('track_list'))
     cover_url = url_for('static', filename=f'generated/{cover_filename}')
-    
-    return render_template('result.html', pet_info=pet_info, content=content, cover_url=cover_url)
+
+    # Audio selection (30s preview mapping)
+    audio_sel = select_audio_track(pet_info)
+    # Support .mp3 or .wav; prefer mp3 if present
+    chosen_file = audio_sel.get('file') or ''
+    stem, ext = os.path.splitext(chosen_file)
+    candidates = []
+    for e in ['.mp3', '.wav']:
+        cand_path = os.path.join(AUDIO_DIR, stem + e)
+        if os.path.exists(cand_path):
+            candidates.append({
+                'url': url_for('static', filename=f'audio/{stem + e}'),
+                'mime': 'audio/mpeg' if e == '.mp3' else 'audio/wav',
+                'ext': e,
+            })
+    audio_exists = len(candidates) > 0
+    audio_url = candidates[0]['url'] if candidates else None
+
+    return render_template(
+        'result.html',
+        pet_info=pet_info,
+        content=content,
+        cover_url=cover_url,
+        audio_url=audio_url,
+        audio_sources=candidates,
+        audio_meta=audio_sel,
+        audio_exists=audio_exists,
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
