@@ -17,183 +17,302 @@
             </div>
 
             <div class="question-container active" data-question="1">
-                <h2>Basic Info</h2>
-                <label for="artist_name">What is your pet's name?</label>
-                <input type="text" id="artist_name" name="artist_name" required>
-                <button type="button" class="next-btn">Next</button>
+                <div class="question-card">
+                    <h2>Basic Info</h2>
+                    <div class="question-box">
+                        <label for="artist_name" class="question-text">What is your pet's name?</label>
+                    </div>
+                    <div class="answers-box">
+                        <input type="text" id="artist_name" name="artist_name" required>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="next-btn">Next</button>
+                    </div>
+                </div>
             </div>
 
             <div class="question-container" data-question="2">
-                <h2>Energy and Vibe</h2>
-                <label>How energetic is your pet?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="energy" value="Chill"> Chill</label>
-                    <label><input type="radio" name="energy" value="Balanced" checked> Balanced</label>
-                    <label><input type="radio" name="energy" value="Zoomies Every Hour"> Zoomies Every Hour</label>
+                <div class="question-card">
+                    <h2>Energy</h2>
+                    <div class="question-box">
+                        <label class="question-text">How energetic is your pet?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="energy" value="Chill"> Chill</label>
+                            <label><input type="radio" name="energy" value="Balanced" checked> Balanced</label>
+                            <label><input type="radio" name="energy" value="Zoomies Every Hour"> Zoomies Every Hour</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="3">
-                <label>What's their overall vibe?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="vibe" value="Regal"> Regal</label>
-                    <label><input type="radio" name="vibe" value="Goofball" checked> Goofball</label>
-                    <label><input type="radio" name="vibe" value="Adventurer"> Adventurer</label>
-                    <label><input type="radio" name="vibe" value="Snuggler"> Snuggler</label>
-                    <label><input type="radio" name="vibe" value="Bossy"> Bossy</label>
-                    <label><input type="radio" name="vibe" value="Wise Sage"> Wise Sage</label>
+                <div class="question-card">
+                    <h2>Vibe</h2>
+                    <div class="question-box">
+                        <label class="question-text">What's their overall vibe?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="vibe" value="Regal"> Regal</label>
+                            <label><input type="radio" name="vibe" value="Goofball" checked> Goofball</label>
+                            <label><input type="radio" name="vibe" value="Adventurer"> Adventurer</label>
+                            <label><input type="radio" name="vibe" value="Snuggler"> Snuggler</label>
+                            <label><input type="radio" name="vibe" value="Bossy"> Bossy</label>
+                            <label><input type="radio" name="vibe" value="Wise Sage"> Wise Sage</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="4">
-                <h2>Social Personality</h2>
-                <label>How social are they?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="social" value="Shy"> Shy</label>
-                    <label><input type="radio" name="social" value="Selective" checked> Selective</label>
-                    <label><input type="radio" name="social" value="Party animal"> Party animal</label>
+                <div class="question-card">
+                    <h2>Social Personality</h2>
+                    <div class="question-box">
+                        <label class="question-text">How social are they?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="social" value="Shy"> Shy</label>
+                            <label><input type="radio" name="social" value="Selective" checked> Selective</label>
+                            <label><input type="radio" name="social" value="Party animal"> Party animal</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="5">
-                <label>Favorite wingman activity?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="wingman_activity" value="People-watching" checked> People-watching</label>
-                    <label><input type="radio" name="wingman_activity" value="Park meetups"> Park meetups</label>
-                    <label><input type="radio" name="wingman_activity" value="Supervising from a distance"> Supervising from a distance</label>
+                <div class="question-card">
+                    <h2>Wingman Activity</h2>
+                    <div class="question-box">
+                        <label class="question-text">Favorite wingman activity?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="wingman_activity" value="People-watching" checked> People-watching</label>
+                            <label><input type="radio" name="wingman_activity" value="Park meetups"> Park meetups</label>
+                            <label><input type="radio" name="wingman_activity" value="Supervising from a distance"> Supervising from a distance</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="6">
-                <h2>Quirks and Signature Moves</h2>
-                <label>Signature move?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="signature_move" value="Head tilt" checked> Head tilt</label>
-                    <label><input type="radio" name="signature_move" value="Side-eye"> Side-eye</label>
-                    <label><input type="radio" name="signature_move" value="Zoomies"> Zoomies</label>
-                    <label><input type="radio" name="signature_move" value="Slow blink"> Slow blink</label>
-                    <label><input type="radio" name="signature_move" value="Spooky stare"> Spooky stare</label>
-                    <label><input type="radio" name="signature_move" value="Bread loaf"> Bread loaf</label>
+                <div class="question-card">
+                    <h2>Signature Move</h2>
+                    <div class="question-box">
+                        <label class="question-text">Signature move?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="signature_move" value="Head tilt" checked> Head tilt</label>
+                            <label><input type="radio" name="signature_move" value="Side-eye"> Side-eye</label>
+                            <label><input type="radio" name="signature_move" value="Zoomies"> Zoomies</label>
+                            <label><input type="radio" name="signature_move" value="Slow blink"> Slow blink</label>
+                            <label><input type="radio" name="signature_move" value="Spooky stare"> Spooky stare</label>
+                            <label><input type="radio" name="signature_move" value="Bread loaf"> Bread loaf</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="7">
-                <label>Weirdest habit?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="weirdest_habit" value="Stealing socks"> Stealing socks</label>
-                    <label><input type="radio" name="weirdest_habit" value="Staring at walls" checked> Staring at walls</label>
-                    <label><input type="radio" name="weirdest_habit" value="Herding humans"> Herding humans</label>
-                    <label><input type="radio" name="weirdest_habit" value="Vocal monologues"> Vocal monologues</label>
+                <div class="question-card">
+                    <h2>Weirdest Habit</h2>
+                    <div class="question-box">
+                        <label class="question-text">Weirdest habit?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="weirdest_habit" value="Stealing socks"> Stealing socks</label>
+                            <label><input type="radio" name="weirdest_habit" value="Staring at walls" checked> Staring at walls</label>
+                            <label><input type="radio" name="weirdest_habit" value="Herding humans"> Herding humans</label>
+                            <label><input type="radio" name="weirdest_habit" value="Vocal monologues"> Vocal monologues</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="8">
-                <h2>Play and Hobbies</h2>
-                <label>Favorite activity?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="favorite_activity" value="Chasing"> Chasing</label>
-                    <label><input type="radio" name="favorite_activity" value="Fetch"> Fetch</label>
-                    <label><input type="radio" name="favorite_activity" value="Puzzle toys"> Puzzle toys</label>
-                    <label><input type="radio" name="favorite_activity" value="Sunbathing" checked> Sunbathing</label>
-                    <label><input type="radio" name="favorite_activity" value="Bird TV"> Bird TV</label>
-                    <label><input type="radio" name="favorite_activity" value="Box forts"> Box forts</label>
+                <div class="question-card">
+                    <h2>Play & Hobbies</h2>
+                    <div class="question-box">
+                        <label class="question-text">Favorite activity?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="favorite_activity" value="Chasing"> Chasing</label>
+                            <label><input type="radio" name="favorite_activity" value="Fetch"> Fetch</label>
+                            <label><input type="radio" name="favorite_activity" value="Puzzle toys"> Puzzle toys</label>
+                            <label><input type="radio" name="favorite_activity" value="Sunbathing" checked> Sunbathing</label>
+                            <label><input type="radio" name="favorite_activity" value="Bird TV"> Bird TV</label>
+                            <label><input type="radio" name="favorite_activity" value="Box forts"> Box forts</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="9">
-                <h2>Affection and Boundaries</h2>
-                <label>Cuddle factor?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="cuddle_factor" value="Only when I decide"> Only when I decide</label>
-                    <label><input type="radio" name="cuddle_factor" value="Sometimes" checked> Sometimes</label>
-                    <label><input type="radio" name="cuddle_factor" value="Velcro"> Velcro</label>
+                <div class="question-card">
+                    <h2>Affection & Boundaries</h2>
+                    <div class="question-box">
+                        <label class="question-text">Cuddle factor?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="cuddle_factor" value="Only when I decide"> Only when I decide</label>
+                            <label><input type="radio" name="cuddle_factor" value="Sometimes" checked> Sometimes</label>
+                            <label><input type="radio" name="cuddle_factor" value="Velcro"> Velcro</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="10">
-                <label>Petting rules?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="petting_rules" value="Head only" checked> Head only</label>
-                    <label><input type="radio" name="petting_rules" value="Belly traps"> Belly traps</label>
-                    <label><input type="radio" name="petting_rules" value="All-access"> All-access</label>
-                    <label><input type="radio" name="petting_rules" value="Don't touch the royal"> Don't touch the royal</label>
+                <div class="question-card">
+                    <h2>Petting Rules</h2>
+                    <div class="question-box">
+                        <label class="question-text">Petting rules?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="petting_rules" value="Head only" checked> Head only</label>
+                            <label><input type="radio" name="petting_rules" value="Belly traps"> Belly traps</label>
+                            <label><input type="radio" name="petting_rules" value="All-access"> All-access</label>
+                            <label><input type="radio" name="petting_rules" value="Don't touch the royal"> Don't touch the royal</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="11">
-                <h2>Bravery and Mischief</h2>
-                <label>Sneakiness level?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="sneakiness" value="Law-abiding"> Law-abiding</label>
-                    <label><input type="radio" name="sneakiness" value="Occasional heist" checked> Occasional heist</label>
-                    <label><input type="radio" name="sneakiness" value="Master thief"> Master thief</label>
+                <div class="question-card">
+                    <h2>Mischief</h2>
+                    <div class="question-box">
+                        <label class="question-text">Sneakiness level?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="sneakiness" value="Law-abiding"> Law-abiding</label>
+                            <label><input type="radio" name="sneakiness" value="Occasional heist" checked> Occasional heist</label>
+                            <label><input type="radio" name="sneakiness" value="Master thief"> Master thief</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="12">
-                <h2>Communication</h2>
-                <label>Vocalness?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="vocalness_description" value="Silent film star"> Silent film star</label>
-                    <label><input type="radio" name="vocalness_description" value="Chatty" checked> Chatty</label>
-                    <label><input type="radio" name="vocalness_description" value="Opera"> Opera</label>
+                <div class="question-card">
+                    <h2>Communication</h2>
+                    <div class="question-box">
+                        <label class="question-text">Vocalness?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="vocalness_description" value="Silent film star"> Silent film star</label>
+                            <label><input type="radio" name="vocalness_description" value="Chatty" checked> Chatty</label>
+                            <label><input type="radio" name="vocalness_description" value="Opera"> Opera</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             <div class="question-container" data-question="13">
-                <label>Favorite sound?</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="favorite_sound" value="Purr/soft chirps" checked> Purr/soft chirps</label>
-                    <label><input type="radio" name="favorite_sound" value="Barks/meows"> Barks/meows</label>
-                    <label><input type="radio" name="favorite_sound" value="Snorts/bleps"> Snorts/bleps</label>
-                    <label><input type="radio" name="favorite_sound" value="Dramatic sighs"> Dramatic sighs</label>
+                <div class="question-card">
+                    <h2>Favorite Sound</h2>
+                    <div class="question-box">
+                        <label class="question-text">Favorite sound?</label>
+                    </div>
+                    <div class="answers-box">
+                        <div class="radio-group">
+                            <label><input type="radio" name="favorite_sound" value="Purr/soft chirps" checked> Purr/soft chirps</label>
+                            <label><input type="radio" name="favorite_sound" value="Barks/meows"> Barks/meows</label>
+                            <label><input type="radio" name="favorite_sound" value="Snorts/bleps"> Snorts/bleps</label>
+                            <label><input type="radio" name="favorite_sound" value="Dramatic sighs"> Dramatic sighs</label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="button" class="next-btn">Next</button>
+                        <button type="button" class="skip-btn">Skip</button>
+                    </div>
                 </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
             </div>
 
             
 
-            <div class="question-container" data-question="15">
-                <h2>Photo Treatment</h2>
-                <label>Choose how the photo should be treated (text layout is fixed).</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="poster_style" value="auto" checked> Auto (based on vibe)</label>
-                    <label><input type="radio" name="poster_style" value="californication"> Californication</label>
-                    <label><input type="radio" name="poster_style" value="melodrama"> Melodrama</label>
-                    <label><input type="radio" name="poster_style" value="gig"> Gig Poster</label>
-                </div>
-                <button type="button" class="next-btn">Next</button>
-                <button type="button" class="skip-btn">Skip</button>
-            </div>
+            <!-- Photo Treatment step removed (melodrama-only enforced in backend) -->
 
-            <div class="question-container" data-question="16">
-                <h2>Album Artwork</h2>
-                <label for="photos">Upload 1-5 photos of your pet:</label>
-                <input type="file" id="photos" name="photos" multiple accept="image/*">
-                <button type="submit">Generate Album Cover</button>
+            <div class="question-container" data-question="14">
+                <div class="question-card">
+                    <h2>Album Artwork</h2>
+                    <div class="question-box">
+                        <label for="photos" class="question-text">Upload 1–5 photos of your pet:</label>
+                    </div>
+                    <div class="answers-box">
+                        <input type="file" id="photos" name="photos" multiple accept="image/*">
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="back-btn">Back</button>
+                        <button type="submit">Generate Poster</button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -235,10 +354,37 @@
                 }
             }
 
+            function prevQuestion() {
+                if (currentQuestionIndex > 0) {
+                    currentQuestionIndex--;
+                    showQuestion(currentQuestionIndex);
+                }
+            }
+
             // Handle Next and Skip button clicks
             form.addEventListener('click', function (e) {
-                if (e.target.classList.contains('next-btn') || e.target.classList.contains('skip-btn')) {
-                    nextQuestion();
+                // Tile selection for answer boxes (radios hidden)
+                const label = e.target.closest('.radio-group label');
+                if (label) {
+                    const input = label.querySelector('input[type="radio"]');
+                    if (input) {
+                        input.checked = true;
+                        // Clear selection styles in this radio group
+                        const group = form.querySelectorAll(`input[type="radio"][name="${input.name}"]`);
+                        group.forEach(r => {
+                            const lab = r.closest('label');
+                            if (lab) lab.classList.remove('selected');
+                        });
+                        label.classList.add('selected');
+                    }
+                }
+                const btn = e.target.closest('button');
+                if (btn) {
+                    if (btn.classList.contains('next-btn') || btn.classList.contains('skip-btn')) {
+                        nextQuestion();
+                    } else if (btn.classList.contains('back-btn')) {
+                        prevQuestion();
+                    }
                 }
             });
 
@@ -262,6 +408,14 @@
 
             // Initial setup
             showQuestion(currentQuestionIndex);
+
+            // Initialize selected styles for any pre-checked radios
+            form.querySelectorAll('input[type="radio"]').forEach(r => {
+                if (r.checked) {
+                    const lab = r.closest('label');
+                    if (lab) lab.classList.add('selected');
+                }
+            });
         });
     </script>
 </body>
